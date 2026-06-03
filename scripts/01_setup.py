@@ -1,4 +1,5 @@
 from huggingface_hub import snapshot_download
+from datasets import load_dataset
 import os
 import torch
 from transformers import AutoTokenizer
@@ -7,13 +8,12 @@ def setup():
     os.makedirs("checkpoints/model", exist_ok=True)
     os.makedirs("checkpoints/sae", exist_ok=True)
     os.makedirs("data/raw", exist_ok=True)
+    os.makedirs("data/processed", exist_ok=True)
     os.makedirs("results/features", exist_ok=True)
     os.makedirs("results/steering", exist_ok=True)
     os.makedirs("results/figures", exist_ok=True)
 
-    # Qwen3-8B 다운로드
-    # Note: If Qwen3-8B is not available, this might fail. 
-    # The instructions specifically mentioned Qwen3-8B.
+    # 1. Qwen3-8B 다운로드
     try:
         print("Downloading Qwen3-8B...")
         snapshot_download(
@@ -25,7 +25,7 @@ def setup():
     except Exception as e:
         print(f"Qwen3-8B 다운로드 실패: {e}")
 
-    # Qwen-Scope SAE 다운로드
+    # 2. Qwen-Scope SAE 다운로드
     try:
         print("Downloading Qwen-Scope SAE...")
         snapshot_download(
@@ -35,6 +35,14 @@ def setup():
         print("Qwen-Scope SAE 다운로드 완료")
     except Exception as e:
         print(f"Qwen-Scope SAE 다운로드 실패: {e}")
+
+    # 3. MedQA 데이터셋 다운로드
+    try:
+        print("Downloading MedQA-USMLE-4-options dataset...")
+        dataset = load_dataset("GBaker/MedQA-USMLE-4-options")
+        print(f"MedQA 데이터셋 다운로드 완료 (Test split size: {len(dataset['test'])})")
+    except Exception as e:
+        print(f"MedQA 데이터셋 다운로드 실패: {e}")
 
 def check_keys_and_tokens():
     print("\n--- Verification ---")

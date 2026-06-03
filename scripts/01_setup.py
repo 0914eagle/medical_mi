@@ -19,6 +19,7 @@ def setup():
         snapshot_download(
             repo_id="Qwen/Qwen3-8B",
             local_dir="checkpoints/model/Qwen3-8B",
+            local_dir_use_symlinks=False,  # 캐시 중복 생성 방지 (용량 절약)
             ignore_patterns=["*.msgpack", "flax_model*"]
         )
         print("Qwen3-8B 다운로드 완료")
@@ -31,6 +32,7 @@ def setup():
         snapshot_download(
             repo_id="Qwen/SAE-Res-Qwen3-8B-Base-W64K-L0_50",
             local_dir="checkpoints/sae/Qwen3-8B-SAE",
+            local_dir_use_symlinks=False,  # 캐시 중복 생성 방지 (용량 절약)
         )
         print("Qwen-Scope SAE 다운로드 완료")
     except Exception as e:

@@ -11,7 +11,6 @@ BASE_DIR = "/workspace/medical_mi"
 MODEL_PATH = f"{BASE_DIR}/checkpoints/model/Qwen3-8B"
 SAE_DIR = f"{BASE_DIR}/checkpoints/sae/Qwen3-8B-SAE"
 STEERING_RESULTS_DIR = f"{BASE_DIR}/results/steering"
-# Layer 25에서 가장 유의미한 결과(낮은 p-value)가 나왔으므로 25로 변경
 PRIMARY_LAYER = 25
 MAGNITUDES = [0.5, 1.0, 2.0, 3.0, 5.0]
 N_TEST_CASES = 30
@@ -33,14 +32,14 @@ def format_question_for_qwen3(tokenizer, question_text, options):
         messages, 
         tokenize=False, 
         add_generation_prompt=True,
-        enable_thinking=False # 네이티브 Non-thinking 모드
+        enable_thinking=False
     )
 
 def get_answer_probabilities(model, tokenizer, formatted_prompt):
     inputs = tokenizer(formatted_prompt, return_tensors="pt", truncation=True, max_length=2048).to(model.device)
     with torch.no_grad():
         outputs = model(**inputs)
-        logits = outputs.logits
+    logits = outputs.logits
     last_logits = logits[0, -1, :]
     probs = torch.softmax(last_logits, dim=-1)
     
@@ -58,17 +57,24 @@ def entropy(probs_dict):
     return -sum(p * math.log(p + 1e-10) for p in probs_dict.values())
 
 def steer_and_evaluate(model, tokenizer, case, sae, feature_indices, magnitude, layer_idx):
-    # SAE 가중치 로드 및 Shape 보정
-    W_enc = sae.get("W_enc", sae.get("encoder.weight")).float()
+    # SAE 가중치 로드
+    w_enc_raw = sae.get("W_enc", sae.get("encoder.weight")).float()
     b_enc = sae.get("b_enc", sae.get("encoder.bias")).float()
-    W_dec = sae.get("W_dec", sae.get("decoder.weight")).float()
+    w_dec_raw = sae.get("W_dec", sae.get("decoder.weight")).float()
     b_dec = sae.get("b_dec", sae.get("decoder.bias", None))
 
-    # Qwen-Scope SAE Shape 보정 ([d_sae, d_model] -> [d_model, d_sae])
-    if W_enc.shape[0] != 4096 and W_enc.shape[1] == 4096:
-        W_enc = W_enc.T
-    if W_dec.shape[1] != 4096 and W_dec.shape[0] == 4096:
-        W_dec = W_dec.T
+    # Shape 보정 및 고정
+    # W_enc: [d_model, d_sae]가 되도록 보정
+    if w_enc_raw.shape == (65536, 4096):
+        W_enc = w_enc_raw.t().contiguous()
+    else:
+        W_enc = w_enc_raw.contiguous()
+        
+    # W_dec: [d_sae, d_model]가 되도록 보정
+    if w_dec_raw.shape == (4096, 65536):
+        W_dec = w_dec_raw.t().contiguous()
+    else:
+        W_dec = w_dec_raw.contiguous()
 
     def hook_fn(module, input, output):
         if isinstance(output, tuple):
@@ -79,12 +85,12 @@ def steer_and_evaluate(model, tokenizer, case, sae, feature_indices, magnitude, 
             rest = None
             
         device = hidden.device
-        h_float = hidden.float()
+        h_float = hidden.float() # [batch, seq, 4096]
         
         if b_dec is not None:
             h_float = h_float - b_dec.float().to(device)
             
-        # Encode
+        # Encode: [batch, seq, 4096] @ [4096, 65536] -> [batch, seq, 65536]
         pre_act = h_float @ W_enc.to(device) + b_enc.to(device)
         
         # TopK k=50
@@ -99,7 +105,7 @@ def steer_and_evaluate(model, tokenizer, case, sae, feature_indices, magnitude, 
         f_tensor = torch.tensor(feature_indices, dtype=torch.long, device=device)
         features[:, :, f_tensor] *= (1 + magnitude)
         
-        # Decode back
+        # Decode: [batch, seq, 65536] @ [65536, 4096] -> [batch, seq, 4096]
         modified = features @ W_dec.to(device)
         if b_dec is not None:
             modified = modified + b_dec.float().to(device)
@@ -111,7 +117,7 @@ def steer_and_evaluate(model, tokenizer, case, sae, feature_indices, magnitude, 
 
     formatted = format_question_for_qwen3(tokenizer, case["question"], case["options"])
     
-    # Original (No steering)
+    # Original
     orig_probs = get_answer_probabilities(model, tokenizer, formatted)
     orig_answer = max(orig_probs, key=orig_probs.get)
     orig_conf = orig_probs[orig_answer]
@@ -146,7 +152,6 @@ def main():
     with open(f"{BASE_DIR}/results/features/ignorance_feature_candidates.json") as f:
         candidates = json.load(f)
     
-    # 해당 레이어의 상위 20개 후보 사용
     top_features = candidates[str(PRIMARY_LAYER)]["top_feature_indices"][:20]
     sae = load_sae(PRIMARY_LAYER)
     
@@ -154,20 +159,19 @@ def main():
     for mag in MAGNITUDES:
         print(f"\nRunning Steering Magnitude: {mag}")
         results = []
-        # 가용한 케이스 내에서 테스트
         n_test = min(len(ignorance_cases), N_TEST_CASES)
         for case in tqdm(ignorance_cases[:n_test]):
             res = steer_and_evaluate(model, tokenizer, case, sae, top_features, mag, PRIMARY_LAYER)
             results.append(res)
             
         became_uncertain = sum(r["became_uncertain"] for r in results)
-        avg_conf_change = sum(r["steered"]["conf"] - r["original"]["conf"] for r in results) / len(results)
+        avg_conf_change = sum(r["steered"]["conf"] - r["original"]["conf"] for r in results) / len(results) if results else 0
         
         print(f"  Uncertain cases: {became_uncertain}/{len(results)}")
         print(f"  Avg Conf Change: {avg_conf_change:+.4f}")
         
         all_results[str(mag)] = {
-            "became_uncertain_rate": became_uncertain / len(results) if len(results) > 0 else 0,
+            "became_uncertain_rate": became_uncertain / len(results) if results else 0,
             "avg_confidence_change": avg_conf_change,
             "individual_results": results
         }

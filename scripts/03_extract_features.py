@@ -52,14 +52,21 @@ def get_residual_stream_activation(model, tokenizer, text, layer_idx):
     return activation_store["activation"]
 
 def activation_to_sae_features(activation, sae):
-    # SAE 가중치 매핑
-    W_enc = sae.get("W_enc", sae.get("encoder.weight")).float()
+    # SAE 가중치 매핑 및 Shape 맞춤
+    W_enc = sae.get("W_enc", sae.get("encoder.weight")).float() # [d_sae, d_model] 또는 [d_model, d_sae]
     b_enc = sae.get("b_enc", sae.get("encoder.bias")).float()
     b_dec = sae.get("b_dec", sae.get("decoder.bias", None))
 
+    # Qwen-Scope SAE는 보통 [d_sae, d_model] 형태일 수 있음. 
+    # 행렬 곱셈을 위해 [d_model, d_sae]로 변환
+    if W_enc.shape[0] != 4096 and W_enc.shape[1] == 4096:
+        W_enc = W_enc.T
+
+    activation = activation.float()
     if b_dec is not None:
-        activation = activation.float() - b_dec.float()
+        activation = activation - b_dec.float()
     
+    # [4096] @ [4096, 65536] + [65536] -> [65536]
     pre_activations = activation @ W_enc + b_enc
     
     # TopK activation (k=50)

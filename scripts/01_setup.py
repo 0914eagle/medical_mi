@@ -88,7 +88,3 @@ def check_keys_and_tokens():
 if __name__ == "__main__":
     setup()
     check_keys_and_tokens()
-
-if __name__ == "__main__":
-    setup()
-    check_keys_and_tokens()

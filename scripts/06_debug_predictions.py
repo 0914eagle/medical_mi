@@ -26,22 +26,39 @@ def debug():
         print(f"\n{'='*20} Debugging Case {i} {'='*20}")
         
         # 1. Check original data format
-        print(f"Dataset Answer: '{case['answer']}' (Type: {type(case['answer'])})")
-        print(f"Dataset Options: {case['options']}")
+        print(f"Dataset Answer String: '{case['answer']}'")
+        
+        # Find which key (A, B, C, D) corresponds to the answer string
+        correct_key = None
+        for k, v in case["options"].items():
+            if v.strip() == case["answer"].strip():
+                correct_key = k
+                break
+        
+        # If not found exactly, try fuzzy matching or other fields
+        if not correct_key:
+            # Check if answer_idx exists (some versions have it)
+            if 'answer_idx' in case:
+                correct_key = chr(65 + case['answer_idx']) # 0->A, 1->B...
+        
+        print(f"Mapped Correct Key: {correct_key}")
 
         # 2. Format prompt
         options_text = "\n".join([f"{k}. {v}" for k, v in case["options"].items()])
         prompt = f"{case['question']}\n\nOptions:\n{options_text}\n\nAnswer with just the letter (A, B, C, or D). /no_think"
         messages = [{"role": "user", "content": prompt}]
         formatted = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
-        
-        print(f"Formatted Prompt (last 50 chars): ...{formatted[-50:]}")
 
-        # 3. Get logits
+        # 3. Get logits with bias
         inputs = tokenizer(formatted, return_tensors="pt").to(model.device)
         with torch.no_grad():
             outputs = model(**inputs)
             logits = outputs.logits[0, -1, :]
+            
+            # --- THINKING SUPPRESSION ---
+            # Force the model NOT to pick the <think> token (151667)
+            logits[151667] = -float('inf')
+            
             probs = torch.softmax(logits, dim=-1)
 
         # 4. Check Top 5 overall tokens

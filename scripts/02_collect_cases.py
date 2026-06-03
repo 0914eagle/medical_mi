@@ -8,7 +8,7 @@ import os
 # --- Constants & Config ---
 MODEL_PATH = "checkpoints/model/Qwen3-8B"
 DATA_DIR = "data/processed"
-N_CASES = 200 # Pilot phase
+N_CASES = 1273 # 전체 테스트 세트
 HIGH_CONF_THRESHOLD = 0.70
 LOW_CONF_THRESHOLD = 0.40
 
@@ -16,7 +16,7 @@ LOW_CONF_THRESHOLD = 0.40
 
 def format_question_for_qwen3(tokenizer, question_text, options):
     """
-    Qwen3 non-thinking mode format with /no_think
+    Qwen3 non-thinking mode format using enable_thinking=False
     """
     options_text = "\n".join([f"{k}. {v}" for k, v in options.items()])
     
@@ -25,13 +25,14 @@ def format_question_for_qwen3(tokenizer, question_text, options):
 Options:
 {options_text}
 
-Answer with just the letter (A, B, C, or D). /no_think"""
+Answer with just the letter (A, B, C, or D)."""
     
     messages = [{"role": "user", "content": prompt}]
     formatted = tokenizer.apply_chat_template(
         messages,
         tokenize=False,
-        add_generation_prompt=True
+        add_generation_prompt=True,
+        enable_thinking=False # 핵심: 네이티브 Non-thinking 모드 활성화
     )
     return formatted
 
@@ -55,9 +56,7 @@ def get_answer_probabilities(model, tokenizer, formatted_prompt):
     
     answer_probs = {}
     for choice in ["A", "B", "C", "D"]:
-        # Verification of token IDs as requested by user
         token_ids = tokenizer.encode(choice, add_special_tokens=False)
-        # Using the first token if multiple are returned
         answer_probs[choice] = probs[token_ids[0]].item()
     
     # Normalization
@@ -73,7 +72,19 @@ def evaluate_case(model, tokenizer, case):
     
     model_answer = max(probs, key=probs.get)
     confidence = probs[model_answer]
-    correct_answer = case["answer"]
+    
+    # 정답 매핑 로직 (문장 -> 알파벳)
+    correct_answer_str = case["answer"].strip()
+    correct_answer = None
+    for k, v in case["options"].items():
+        if v.strip() == correct_answer_str:
+            correct_answer = k
+            break
+            
+    # 매핑 실패 시 백업 (일부 데이터셋 구조 대응)
+    if not correct_answer and 'answer_idx' in case:
+        correct_answer = chr(65 + case['answer_idx'])
+        
     is_correct = (model_answer == correct_answer)
     
     if is_correct and confidence >= HIGH_CONF_THRESHOLD:
@@ -113,7 +124,7 @@ def main():
     test_data = dataset["test"]
 
     results = []
-    print(f"Evaluating {N_CASES} cases...")
+    print(f"Evaluating {min(N_CASES, len(test_data))} cases...")
     for i in tqdm(range(min(N_CASES, len(test_data)))):
         case = test_data[i]
         try:

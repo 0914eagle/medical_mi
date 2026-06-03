@@ -1,0 +1,22 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Data and Models
+checkpoints/
+data/raw/
+data/processed/
+results/features/
+results/steering/
+results/figures/
+
+# Environments
+.venv/
+env/
+venv/
+ENV/
+
+# OS generated files
+.DS_Store
+Thumbs.db

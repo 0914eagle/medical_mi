@@ -101,6 +101,11 @@ def evaluate_model(model, tokenizer, data, include_context=True):
     return accuracy, results
 
 def main():
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--models", nargs="+", help="Specific models to validate (e.g., qwen3-8b)")
+    args = parser.parse_args()
+
     os.makedirs(RESULTS_DIR, exist_ok=True)
     
     print("Loading PubMedQA dataset...")
@@ -109,7 +114,15 @@ def main():
     
     summary = {}
     
-    for name, path in MODELS.items():
+    # 선택된 모델이 있으면 그들만, 없으면 전체 수행
+    target_models = args.models if args.models else MODELS.keys()
+    
+    for name in target_models:
+        if name not in MODELS:
+            print(f"Unknown model: {name}. Skipping.")
+            continue
+            
+        path = MODELS[name]
         if not os.path.exists(path):
             print(f"Skipping {name}: Path not found at {path}")
             continue

@@ -44,10 +44,19 @@ def format_pubmedqa(item, tokenizer, enable_thinking=False):
         return tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
 
 def main():
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--models", nargs="+", help="Specific models to process")
+    args = parser.parse_args()
+
     os.makedirs(f"{BASE_DIR}/results/features", exist_ok=True)
     data = load_dataset("qiaojin/PubMedQA", "pqa_labeled")["train"]
 
-    for model_name, config in MODELS.items():
+    target_models = args.models if args.models else MODELS.keys()
+
+    for model_name in target_models:
+        if model_name not in MODELS: continue
+        config = MODELS[model_name]
         if not os.path.exists(config["path"]): continue
         
         print(f"\n--- Phase 1: Finding Features for {model_name} ---")

@@ -27,11 +27,20 @@ def get_residual_activation(model, tokenizer, prompt, layer_idx):
     return store["act"]
 
 def main():
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--models", nargs="+", help="Specific models to process")
+    args = parser.parse_args()
+
     # PubMedQA를 말뭉치(Corpus)로 사용
     data = load_dataset("qiaojin/PubMedQA", "pqa_labeled")["train"]
     corpus = [item["question"] + " " + " ".join(item["context"]["contexts"]) for item in data]
     
-    for model_name, config in MODELS.items():
+    target_models = args.models if args.models else MODELS.keys()
+
+    for model_name in target_models:
+        if model_name not in MODELS: continue
+        config = MODELS[model_name]
         results_path = f"{BASE_DIR}/results/features/{model_name}_phase1_results.json"
         if not os.path.exists(results_path): continue
         

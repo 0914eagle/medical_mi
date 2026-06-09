@@ -19,7 +19,11 @@ echo "=========================================================="
 
 # 1. Phase 0: 모델 의료 지식 검증 (PubMedQA Accuracy & Context Gain)
 echo -e "\n[Phase 0] Validating Model Medical Knowledge..."
-python3 "$BASE_DIR/scripts/15_phase0_validation.py"
+# 기본값으로 Qwen 모델들만 설정 (Gemma 제외)
+TARGET_MODELS=${@:-"qwen3-8b qwen3.5-9b"}
+echo "Targeting models: $TARGET_MODELS"
+
+python3 "$BASE_DIR/scripts/15_phase0_validation.py" --models $TARGET_MODELS
 
 if [ $? -ne 0 ]; then
     echo "❌ Phase 0 실패. 로그를 확인하세요."

@@ -67,8 +67,8 @@ def main():
             for feat_idx in top_indices:
                 print(f"  Feature #{feat_idx}...")
                 scores = []
-                # 전체 코퍼스에서 Max-activating examples 찾기
-                for text in tqdm(corpus[:200], leave=False): # 시간상 200개만 스캔
+                # 전체 코퍼스(1,000개)에서 Max-activating examples 찾기
+                for text in tqdm(corpus, leave=False): 
                     act = get_residual_activation(model, tokenizer, text[:1000], int(layer_idx))
                     feat_val = sae.encode(act.unsqueeze(0))[0, feat_idx].item()
                     scores.append((text[:200], feat_val))

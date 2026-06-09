@@ -75,8 +75,8 @@ def main():
         correct_cases = []
         ignorance_cases = []
         
-        # Phase 0 결과가 있다면 로드, 없다면 여기서 직접 수행
-        for item in tqdm(data[:300]): # 시간상 300개 샘플링
+        # 전체 1,000개 라벨 데이터를 모두 사용하여 분석
+        for item in tqdm(data): 
             prompt = format_pubmedqa(item, tokenizer, enable_thinking=False)
             inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
             with torch.no_grad():

@@ -134,7 +134,7 @@ def main():
             
         print(f"\n{'='*20} Validating Model: {name} {'='*20}")
         
-        # 모델 로드 (Sequential Load to avoid OOM)
+        # 모델 로드
         print(f"Loading {name}...")
         tokenizer = AutoTokenizer.from_pretrained(path)
         model = AutoModelForCausalLM.from_pretrained(
@@ -145,27 +145,30 @@ def main():
         )
         model.eval()
         
-        # 1. With Context
+        # 1. With Context 평가 수행 (이제 이것만 수행)
         acc_with, res_with = evaluate_model(model, tokenizer, data, include_context=True)
-        # 2. Without Context
-        acc_without, res_without = evaluate_model(model, tokenizer, data, include_context=False)
+        
+        # 2. 'no' 케이스 집중 분석 (Ignorance 분석)
+        no_cases = [r for r in res_with if r["ground_truth"] == "no"]
+        ignorance_cases = [r for r in no_cases if r["prediction"] == "yes"]
+        high_conf_ignorance = [r for r in ignorance_cases if r["confidence"] >= 0.70]
         
         summary[name] = {
-            "accuracy_with_context": acc_with,
-            "accuracy_without_context": acc_without,
-            "context_gain": acc_with - acc_without,
+            "overall_accuracy": acc_with,
+            "no_case_count": len(no_cases),
+            "ignorance_rate_in_no": len(ignorance_cases) / len(no_cases) if no_cases else 0,
+            "high_conf_ignorance_count": len(high_conf_ignorance),
+            "avg_ignorance_confidence": sum(r["confidence"] for r in ignorance_cases)/len(ignorance_cases) if ignorance_cases else 0,
         }
         
-        # 상세 결과 저장
-        with open(f"{RESULTS_DIR}/{name}_with_context.json", "w") as f:
+        # 결과 저장
+        with open(f"{RESULTS_DIR}/{name}_validation_results.json", "w") as f:
             json.dump(res_with, f, indent=2)
-        with open(f"{RESULTS_DIR}/{name}_without_context.json", "w") as f:
-            json.dump(res_without, f, indent=2)
             
         print(f"Result for {name}:")
-        print(f"  With Context: {acc_with:.2%}")
-        print(f"  Without Context: {acc_without:.2%}")
-        print(f"  Context Gain: {acc_with - acc_without:+.2%}")
+        print(f"  Overall Accuracy: {acc_with:.2%}")
+        print(f"  Ignorance Rate (in 'no' cases): {summary[name]['ignorance_rate_in_no']:.2%}")
+        print(f"  High-Conf Ignorance Count: {len(high_conf_ignorance)}")
         
         # 메모리 해제
         del model

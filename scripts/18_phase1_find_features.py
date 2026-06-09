@@ -34,8 +34,14 @@ def get_residual_activation(model, tokenizer, prompt, layer_idx):
     return store["act"]
 
 def format_pubmedqa(item, tokenizer, enable_thinking=False):
-    contexts = item["context"]["contexts"]
-    context_text = " ".join(contexts)[:1500]
+    context_data = item.get("context", "")
+    if isinstance(context_data, dict):
+        contexts = context_data.get("contexts", [])
+        context_text = " ".join(contexts) if isinstance(contexts, list) else str(contexts)
+    else:
+        context_text = str(context_data)
+    
+    context_text = context_text[:1500]
     prompt = f"Context: {context_text}\n\nQuestion: {item['question']}\n\nBased ONLY on the context, answer one word: yes, no, or maybe."
     messages = [{"role": "user", "content": prompt}]
     try:

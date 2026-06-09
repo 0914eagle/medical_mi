@@ -23,8 +23,13 @@ def format_pubmedqa(item, tokenizer, include_context=True):
     """
     PubMedQA를 yes/no/maybe 질문으로 포맷
     """
-    contexts = item["context"]["contexts"]
-    context_text = " ".join(contexts) if isinstance(contexts, list) else str(contexts)
+    context_data = item.get("context", "")
+    if isinstance(context_data, dict):
+        contexts = context_data.get("contexts", [])
+        context_text = " ".join(contexts) if isinstance(contexts, list) else str(contexts)
+    else:
+        context_text = str(context_data)
+
     if len(context_text) > 1500:
         context_text = context_text[:1500] + "..."
     

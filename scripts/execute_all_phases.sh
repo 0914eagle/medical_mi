@@ -5,6 +5,8 @@
 
 BASE_DIR="/workspace/medical_mi"
 export HF_HOME="/workspace/.cache/huggingface"
+# 파이썬이 scripts 폴더 내의 모듈(sae_wrapper 등)을 찾을 수 있게 경로 추가
+export PYTHONPATH="$BASE_DIR/scripts:$PYTHONPATH"
 
 # 폴더 생성
 mkdir -p "$BASE_DIR/results/eval"

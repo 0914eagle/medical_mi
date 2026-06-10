@@ -23,7 +23,8 @@ def steer_multi(model, tokenizer, item, layer, sae, amplify_idxs=None, suppress_
     inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
 
     # steering vector 합성 (decoder 방향들의 합)
-    steer_vec = torch.zeros(sae.W_dec.shape[0], device=model.device) # W_dec shape is [d_sae, d_model]
+    # W_dec shape: [d_sae, d_model] -> steer_vec shape should be [d_model]
+    steer_vec = torch.zeros(sae.W_dec.shape[1], device=model.device) 
     if amplify_idxs:
         for idx in amplify_idxs:
             steer_vec += sae.W_dec[idx, :].to(model.device)
@@ -99,7 +100,7 @@ def main():
     print(f"Original Activation Norm: {act_norm:.3f}")
 
     # 합성된 steer_vec (both 조건 가정)
-    steer_vec_both = torch.zeros(sae.W_dec.shape[0], device=model.device)
+    steer_vec_both = torch.zeros(sae.W_dec.shape[1], device=model.device)
     for idx in correct_dom: steer_vec_both += sae.W_dec[idx, :]
     for idx in wrong_dom: steer_vec_both -= sae.W_dec[idx, :]
     steer_norm = steer_vec_both.norm().item()

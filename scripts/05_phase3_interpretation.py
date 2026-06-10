@@ -6,7 +6,7 @@ from datasets import load_dataset
 from tqdm import tqdm
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from sae_wrapper import SAEWrapper
-from utils import format_pubmedqa, get_activation_with_hook, get_sae_path
+from utils import format_pubmedqa, get_activation_with_hook, get_sae_path, format_medqa
 import gc
 
 # --- Config ---
@@ -36,7 +36,8 @@ def main():
     # PubMedQA (with context)
     print("Loading PubMedQA...")
     pubmedqa = load_dataset("qiaojin/PubMedQA", "pqa_labeled")["train"]
-    pqa_subset = pubmedqa.select(range(min(30, len(pubmedqa))))
+    # Safer looping
+    pqa_subset = [pubmedqa[i] for i in range(min(30, len(pubmedqa)))]
     corpora["pubmedqa_with_context"] = [format_pubmedqa(it, None, True) for it in pqa_subset]
     corpora["pubmedqa_no_context"] = [format_pubmedqa(it, None, False) for it in pqa_subset]
 
@@ -44,19 +45,11 @@ def main():
     print("Loading MedQA...")
     try:
         medqa = load_dataset("GBaker/MedQA-USMLE-4-options")["test"]
-        medqa_subset = medqa.select(range(min(30, len(medqa))))
-        from utils import format_medqa
+        medqa_subset = [medqa[i] for i in range(min(30, len(medqa)))]
         corpora["medqa"] = [format_medqa(it, None) for it in medqa_subset]
-    except:
+    except Exception as e:
+        print(f"MedQA load error: {e}")
         corpora["medqa"] = ["Placeholder MedQA question."] * 10
-
-    # General (Wiki)
-    print("Loading Wiki...")
-    try:
-        wiki = load_dataset("wikitext", "wikitext-2-raw-v1", split="test")
-        corpora["general"] = [t for t in wiki["text"] if len(t) > 100][:30]
-    except:
-        corpora["general"] = ["Placeholder general text."] * 10
 
     # 모델 & SAE 로드
     path = MODELS[model_name]
@@ -73,10 +66,6 @@ def main():
         activations = []
         for text in tqdm(texts, desc=f"Processing {corpus_name}"):
             if not text.strip(): continue
-            # If tokenizer was passed as None in format_pubmedqa/format_medqa, it returned raw string.
-            # We need to apply chat template here if it's not already applied.
-            # For simplicity, we assume texts are already formatted or we format them now.
-            # Actually, format_pubmedqa(it, None) returns raw prompt. We need to wrap it in chat template.
             messages = [{"role": "user", "content": text}]
             try:
                 formatted_text = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True, enable_thinking=False)

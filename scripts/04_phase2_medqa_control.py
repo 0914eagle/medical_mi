@@ -28,6 +28,8 @@ def format_medqa(item, tokenizer):
     
     prompt = f"Question: {question}\n\nOptions:\n{opt_str}\n\nAnswer with one letter (A, B, C, or D):"
     
+    if tokenizer is None: return prompt
+
     messages = [{"role": "user", "content": prompt}]
     try:
         return tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True, enable_thinking=False)
@@ -43,7 +45,7 @@ def get_medqa_pred(model, tokenizer, prompt):
     results = {}
     for letter in ["A", "B", "C", "D"]:
         ids = tokenizer.encode(letter, add_special_tokens=False) + tokenizer.encode(" " + letter, add_special_tokens=False)
-        results[letter] = max(probs[i].item() for i in ids)
+        results[letter] = max(probs[i].item() for i in ids if i < probs.shape[0])
     
     return max(results, key=results.get)
 
@@ -72,11 +74,14 @@ def main():
     print("Loading MedQA...")
     medqa = load_dataset("GBaker/MedQA-USMLE-4-options")["test"]
 
-    # 1. MedQA 평가 및 데이터 준비
+    # 1. MedQA 평가 및 데이터 준비 (가장 안전한 방식의 루프)
     print("Evaluating MedQA...")
     correct_cases = []
     wrong_cases = []
-    for item in tqdm(medqa[:200]): # 시간 단축을 위해 200개 샘플
+    
+    n_eval = min(200, len(medqa))
+    for i in tqdm(range(n_eval), desc="MedQA Evaluation"):
+        item = medqa[i] # 명시적으로 한 줄(dict)을 가져옴
         prompt = format_medqa(item, tokenizer)
         pred = get_medqa_pred(model, tokenizer, prompt)
         if pred == item["answer_idx"]:
@@ -97,13 +102,13 @@ def main():
         sae_dict = torch.load(sae_path)
         sae = SAEWrapper(sae_dict, suite="qwen" if "qwen" in model_name else "gemma").to(model.device)
         
-        correct_features = data["correct_dominant"][:10] # Top 10만 확인
+        correct_features = data["correct_dominant"][:10] 
         
         layer_control = []
         for feat_idx in correct_features:
-            # MedQA correct/wrong에서 해당 feature의 활성화도 측정
             acts_c = []
-            for item in correct_cases[:50]:
+            for j in range(min(50, len(correct_cases))):
+                item = correct_cases[j]
                 prompt = format_medqa(item, tokenizer)
                 act = get_activation_with_hook(model, tokenizer, prompt, layer)
                 with torch.no_grad():
@@ -111,7 +116,8 @@ def main():
                     acts_c.append(f_val)
             
             acts_w = []
-            for item in wrong_cases[:50]:
+            for j in range(min(50, len(wrong_cases))):
+                item = wrong_cases[j]
                 prompt = format_medqa(item, tokenizer)
                 act = get_activation_with_hook(model, tokenizer, prompt, layer)
                 with torch.no_grad():

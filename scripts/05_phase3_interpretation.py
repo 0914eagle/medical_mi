@@ -36,15 +36,17 @@ def main():
     # PubMedQA (with context)
     print("Loading PubMedQA...")
     pubmedqa = load_dataset("qiaojin/PubMedQA", "pqa_labeled")["train"]
-    corpora["pubmedqa_with_context"] = [format_pubmedqa(it, None, True) for it in pubmedqa[:30]]
-    corpora["pubmedqa_no_context"] = [format_pubmedqa(it, None, False) for it in pubmedqa[:30]]
+    pqa_subset = pubmedqa.select(range(min(30, len(pubmedqa))))
+    corpora["pubmedqa_with_context"] = [format_pubmedqa(it, None, True) for it in pqa_subset]
+    corpora["pubmedqa_no_context"] = [format_pubmedqa(it, None, False) for it in pqa_subset]
 
     # MedQA (no context)
     print("Loading MedQA...")
     try:
         medqa = load_dataset("GBaker/MedQA-USMLE-4-options")["test"]
+        medqa_subset = medqa.select(range(min(30, len(medqa))))
         from 04_phase2_medqa_control import format_medqa
-        corpora["medqa"] = [format_medqa(it, None) for it in medqa[:30]]
+        corpora["medqa"] = [format_medqa(it, None) for it in medqa_subset]
     except:
         corpora["medqa"] = ["Placeholder MedQA question."] * 10
 

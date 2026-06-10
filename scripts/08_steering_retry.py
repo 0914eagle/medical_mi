@@ -34,7 +34,8 @@ def steer_multi(model, tokenizer, item, layer, sae, amplify_idxs=None, suppress_
 
     def hook(m, i, o):
         h = o[0] if isinstance(o, tuple) else o
-        h[0, -1, :] = h[0, -1, :] + alpha * steer_vec.to(h.dtype)
+        # steer_vec을 현재 액티베이션(h)이 있는 GPU와 데이터 타입으로 강제 일치
+        h[0, -1, :] = h[0, -1, :] + alpha * steer_vec.to(device=h.device, dtype=h.dtype)
         return o
 
     handle = model.model.layers[layer].register_forward_hook(hook)

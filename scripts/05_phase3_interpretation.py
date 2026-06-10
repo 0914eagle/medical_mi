@@ -45,7 +45,7 @@ def main():
     try:
         medqa = load_dataset("GBaker/MedQA-USMLE-4-options")["test"]
         medqa_subset = medqa.select(range(min(30, len(medqa))))
-        from 04_phase2_medqa_control import format_medqa
+        from utils import format_medqa
         corpora["medqa"] = [format_medqa(it, None) for it in medqa_subset]
     except:
         corpora["medqa"] = ["Placeholder MedQA question."] * 10

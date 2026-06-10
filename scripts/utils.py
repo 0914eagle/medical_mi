@@ -88,6 +88,24 @@ def get_ynm_probs(model, tokenizer, prompt):
         result = {"yes": 0.33, "no": 0.33, "maybe": 0.33}
     return result
 
+def format_medqa(item, tokenizer=None):
+    """
+    MedQA 포맷: Question + Options A,B,C,D
+    """
+    question = item["question"]
+    options = item["options"]
+    opt_str = "\n".join([f"{k}: {v}" for k, v in options.items()])
+    
+    prompt = f"Question: {question}\n\nOptions:\n{opt_str}\n\nAnswer with one letter (A, B, C, or D):"
+    
+    if tokenizer is None: return prompt
+
+    messages = [{"role": "user", "content": prompt}]
+    try:
+        return tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True, enable_thinking=False)
+    except:
+        return tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+
 class ActivationFetcher:
     """
     Hook-기반 액티베이션 추출기 (레이어 인덱싱 일관성 보장)

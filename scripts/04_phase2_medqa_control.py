@@ -6,35 +6,8 @@ from datasets import load_dataset
 from tqdm import tqdm
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from sae_wrapper import SAEWrapper
-from utils import get_activation_with_hook, get_sae_path
+from utils import get_activation_with_hook, get_sae_path, format_medqa
 import gc
-
-# --- Config ---
-BASE_DIR = "/workspace/medical_mi"
-MODELS = {
-    "qwen3-8b": f"{BASE_DIR}/checkpoints/model/qwen3-8b",
-    "qwen3.5-9b": f"{BASE_DIR}/checkpoints/model/qwen3.5-9b",
-}
-RESULTS_DIR = f"{BASE_DIR}/results/eval"
-os.makedirs(RESULTS_DIR, exist_ok=True)
-
-def format_medqa(item, tokenizer):
-    """
-    MedQA 포맷: Question + Options A,B,C,D
-    """
-    question = item["question"]
-    options = item["options"]
-    opt_str = "\n".join([f"{k}: {v}" for k, v in options.items()])
-    
-    prompt = f"Question: {question}\n\nOptions:\n{opt_str}\n\nAnswer with one letter (A, B, C, or D):"
-    
-    if tokenizer is None: return prompt
-
-    messages = [{"role": "user", "content": prompt}]
-    try:
-        return tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True, enable_thinking=False)
-    except:
-        return tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
 
 def get_medqa_pred(model, tokenizer, prompt):
     inputs = tokenizer(prompt, return_tensors="pt").to(model.device)

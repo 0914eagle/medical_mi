@@ -6,28 +6,20 @@ from datasets import load_dataset
 from tqdm import tqdm
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from sae_wrapper import SAEWrapper
-from utils import format_pubmedqa
+from utils import format_pubmedqa, get_ynm_probs
 
 # --- Config ---
 BASE_DIR = "/workspace/medical_mi"
 MODELS = {
     "qwen3-8b": f"{BASE_DIR}/checkpoints/model/qwen3-8b",
     "qwen3.5-9b": f"{BASE_DIR}/checkpoints/model/qwen3.5-9b",
-    "gemma3-12b-it": f"{BASE_DIR}/checkpoints/model/gemma3-12b-it",
 }
-SAE_BASE = f"{BASE_DIR}/checkpoints/sae"
 RESULTS_DIR = f"{BASE_DIR}/results/steering"
 os.makedirs(RESULTS_DIR, exist_ok=True)
 
 def get_sae_path(model_name, layer):
-    path_options = [
-        f"{SAE_BASE}/{model_name}/layer_{layer}/res_64k/sae_weights.pt",
-        f"{SAE_BASE}/{model_name}/layer{layer}.sae.pt",
-        f"{SAE_BASE}/{model_name}/{layer}/sae.pt"
-    ]
-    for p in path_options:
-        if os.path.exists(p): return p
-    return None
+    from utils import get_sae_path as get_path
+    return get_path(model_name, layer)
 
 def steer_and_test(model, tokenizer, item, layer, steer_vec, alpha=10.0):
     prompt = format_pubmedqa(item, tokenizer, include_context=True)
@@ -63,67 +55,74 @@ def steer_and_test(model, tokenizer, item, layer, steer_vec, alpha=10.0):
 def main():
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model", type=str, default="qwen3.5-9b")
+    parser.add_argument("--model", type=str, required=True)
     parser.add_argument("--layer", type=int, default=20)
     parser.add_argument("--feature_idx", type=int, required=True)
-    parser.add_argument("--alpha", type=float, default=20.0, help="Scale factor. Consider the typical activation range from Phase B.")
+    parser.add_argument("--alpha", type=float, default=20.0)
     args = parser.parse_args()
 
     model_name = args.model
     layer = args.layer
     feature_idx = args.feature_idx
 
-    print("Loading data...")
-    conflict_set_path = f"/workspace/medical_mi/results/eval/{model_name}_conflict_set.json"
-    with open(conflict_set_path, "r") as f:
-        full_data = json.load(f)
+    print(f"--- Phase 4: Steering for {model_name} L{layer} F{feature_idx} ---")
+
+    # Load labels to identify 'wrong' cases
+    labels_path = f"/workspace/medical_mi/results/eval/{model_name}_labels.json"
+    with open(labels_path, "r") as f:
+        labels_data = json.load(f)
     
     pubmedqa = load_dataset("qiaojin/PubMedQA", "pqa_labeled")["train"]
     item_map = {item["pubid"]: item for item in pubmedqa}
     
-    ignored_cases = [item_map[r["item_id"]] for r in full_data if r["classification"] == "IGNORED"]
-    no_conflict_cases = [item_map[r["item_id"]] for r in full_data if r["classification"] == "NO_CONFLICT"]
+    wrong_cases = [item_map[r["item_id"]] for r in labels_data if not r["is_correct"]]
+    correct_cases = [item_map[r["item_id"]] for r in labels_data if r["is_correct"]]
 
+    # 모델 & SAE 로드
     path = MODELS[model_name]
     tokenizer = AutoTokenizer.from_pretrained(path)
     model = AutoModelForCausalLM.from_pretrained(path, torch_dtype=torch.float16, device_map="auto")
     model.eval()
 
     sae_path = get_sae_path(model_name, layer)
-    if not sae_path:
-        print(f"SAE not found for layer {layer}")
-        return
-        
     sae_dict = torch.load(sae_path)
-    suite = "qwen" if "qwen" in model_name else "gemma"
-    sae = SAEWrapper(sae_dict, suite=suite).to(model.device)
+    sae = SAEWrapper(sae_dict, suite="qwen" if "qwen" in model_name else "gemma").to(model.device)
     
-    # Steering vector = decoder weight of the feature (Integrated-dominant)
     steer_vec = sae.W_dec[feature_idx, :]
 
-    print(f"\nSteering with Feature {feature_idx} at Layer {layer} (alpha={args.alpha})...")
-    
-    # 1. IGNORED cases
+    # 1. Wrong -> Correct 교정률
     flips = 0
-    total_ignored = 0
-    for item in tqdm(ignored_cases[:20], desc="Testing IGNORED"):
+    total_w = 0
+    for item in tqdm(wrong_cases[:30], desc="Testing WRONG cases"):
         res = steer_and_test(model, tokenizer, item, layer, steer_vec, alpha=args.alpha)
-        if max(res, key=res.get) == "no":
+        if max(res, key=res.get) == item["final_decision"]:
             flips += 1
-        total_ignored += 1
+        total_w += 1
     
-    print(f"Flip Rate: {flips/total_ignored if total_ignored else 0:.2%}")
-
-    # 2. NO_CONFLICT cases (Selectivity)
+    # 2. Correct -> Wrong 오염률 (Selectivity)
     corrupted = 0
-    total_nc = 0
-    for item in tqdm(no_conflict_cases[:20], desc="Testing Selectivity"):
+    total_c = 0
+    for item in tqdm(correct_cases[:30], desc="Testing CORRECT cases"):
         res = steer_and_test(model, tokenizer, item, layer, steer_vec, alpha=args.alpha)
-        if max(res, key=res.get) != "no":
+        if max(res, key=res.get) != item["final_decision"]:
             corrupted += 1
-        total_nc += 1
+        total_c += 1
+
+    summary = {
+        "model": model_name,
+        "layer": layer,
+        "feature_idx": feature_idx,
+        "alpha": args.alpha,
+        "recovery_rate": flips / total_w if total_w > 0 else 0,
+        "corruption_rate": corrupted / total_c if total_c > 0 else 0
+    }
     
-    print(f"Corruption Rate: {corrupted/total_nc if total_nc else 0:.2%}")
+    print("\nSteering Summary:")
+    print(json.dumps(summary, indent=2))
+    
+    output_path = f"{RESULTS_DIR}/{model_name}_steering_L{layer}_F{feature_idx}.json"
+    with open(output_path, "w") as f:
+        json.dump(summary, f, indent=2)
 
 if __name__ == "__main__":
     main()

@@ -62,9 +62,14 @@ def setup():
         load_dataset("qiaojin/PubMedQA", "pqa_labeled", cache_dir=f"{os.environ['HF_HOME']}/datasets")
         print("PubMedQA 완료")
         
-        print("\nDownloading MedAbstain (Manual checkout might be needed for github repo)...")
-        # MedAbstain은 보통 github clone이 필요할 수 있으나, 일단 명시
-        # !git clone https://github.com/sravanthi6m/MedAbstain.git /workspace/medical_mi/data/raw/MedAbstain
+        print("\nDownloading MedAbstain from GitHub...")
+        med_abstain_path = f"{base_dir}/data/raw/MedAbstain"
+        if not os.path.exists(med_abstain_path):
+            os.system(f"git clone https://github.com/sravanthi6m/MedAbstain.git {med_abstain_path}")
+            print("MedAbstain 다운로드 완료")
+        else:
+            print("MedAbstain이 이미 존재합니다.")
+            
     except Exception as e:
         print(f"데이터셋 다운로드 실패: {e}")
 

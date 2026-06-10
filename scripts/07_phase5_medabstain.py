@@ -14,7 +14,20 @@ MODELS = {
     "qwen3-8b": f"{BASE_DIR}/checkpoints/model/qwen3-8b",
     "qwen3.5-9b": f"{BASE_DIR}/checkpoints/model/qwen3.5-9b",
 }
-MEDABSTAIN_DIR = f"{BASE_DIR}/data/raw/MedAbstain/data"
+
+def get_medabstain_dir():
+    """
+    MedAbstain 데이터 폴더를 유연하게 탐색
+    """
+    possible_paths = [
+        f"{BASE_DIR}/data/raw/MedAbstain/data",
+        f"{BASE_DIR}/data/raw/MedAbstain/MedAbstain/data", # 중첩된 경우 대비
+        "/Users/heejae/Developer/MedAbstain/data" # 로컬 테스트 대비
+    ]
+    for p in possible_paths:
+        if os.path.exists(p):
+            return p
+    return None
 
 def format_medabstain(item, tokenizer, use_original=False):
     """
@@ -59,17 +72,27 @@ def main():
     model = AutoModelForCausalLM.from_pretrained(path, torch_dtype=torch.float16, device_map="auto")
     model.eval()
 
-    # 데이터 로드: perturbed 파일 하나에 original과 perturbed 정보가 모두 들어있음 (id 매칭 용이)
-    pert_file = f"{MEDABSTAIN_DIR}/perturbed_medqa_1_test_noabst.json"
-    if not os.path.exists(pert_file):
-        print(f"MedAbstain file not found: {pert_file}")
+    # 데이터 디렉토리 탐색
+    data_dir = get_medabstain_dir()
+    if data_dir is None:
+        print("MedAbstain data directory not found.")
         return
         
+    # 데이터 로드: perturbed 파일 하나에 original과 perturbed 정보가 모두 들어있음
+    pert_file = f"{data_dir}/perturbed_medqa_1_test_noabst.json"
+    if not os.path.exists(pert_file):
+        # 파일명이 다른 경우 체크 (alldiff)
+        pert_file = f"{data_dir}/perturbed_medqa_alldiff_test_noabst.json"
+        
+    if not os.path.exists(pert_file):
+        print(f"MedAbstain file not found in {data_dir}")
+        return
+        
+    print(f"Loading data from: {pert_file}")
     with open(pert_file, "r") as f:
         data = json.load(f)
 
     layer_results = {}
-    # Layer 20 등 핵심 레이어에 대해 수행
     for layer_str, feat_info in phase1_data.items():
         layer = int(layer_str)
         print(f"Analyzing Layer {layer}...")
@@ -79,7 +102,6 @@ def main():
         sae_dict = torch.load(sae_path)
         sae = SAEWrapper(sae_dict, suite="qwen" if "qwen" in model_name else "gemma").to(model.device)
         
-        # Phase 1에서 찾은 top correct_dominant feature 사용
         top_features = feat_info["correct_dominant"][:5]
         if not top_features: continue
 
@@ -88,7 +110,6 @@ def main():
             acts_orig = []
             acts_pert = []
             
-            # 50개 샘플에 대해 비교
             for item in tqdm(data[:50], desc=f"Feature {feat_idx}"):
                 # 1. Original (Full Information)
                 prompt_orig = format_medabstain(item, tokenizer, use_original=True)

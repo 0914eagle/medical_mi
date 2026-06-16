@@ -21,17 +21,19 @@ def subset_summary(labels, ids):
 def main():
     parser = argparse.ArgumentParser(description="PubMedQA split-aware context/no-context evaluation.")
     parser.add_argument("--model", required=True)
-    parser.add_argument("--folds", type=int, default=5)
+    parser.add_argument("--folds", type=int, default=10)
     parser.add_argument("--seed", type=int, default=13)
     parser.add_argument("--official-test-ids", default=None)
-    parser.add_argument("--no-official-download", action="store_true")
+    parser.add_argument("--use-official-test", action="store_true")
     args = parser.parse_args()
 
     items = load_pubmedqa_items()
-    official_ids = load_official_pubmedqa_test_ids(
-        path=args.official_test_ids,
-        allow_download=not args.no_official_download,
-    )
+    official_ids = set()
+    if args.official_test_ids or args.use_official_test:
+        official_ids = load_official_pubmedqa_test_ids(
+            path=args.official_test_ids,
+            allow_download=args.use_official_test,
+        )
     splits = make_pubmedqa_splits(items, folds=args.folds, seed=args.seed, official_test_ids=official_ids)
 
     model, tokenizer = load_model_and_tokenizer(args.model)

@@ -267,18 +267,21 @@ def filter_context_specific_features(
     medqa_subset = medqa_items[:max_items]
     stats = {}
     selected = []
+    if not candidates:
+        return selected, stats
+
+    feat_with = extract_feature_matrix(model, tokenizer, sae, pqa_subset, layer, include_context=True)
+    feat_without = extract_feature_matrix(model, tokenizer, sae, pqa_subset, layer, include_context=False)
+    feat_medqa = extract_feature_matrix(model, tokenizer, sae, medqa_subset, layer, formatter=format_medqa)
+
+    mean_with_all = feat_with.mean(axis=0) if feat_with.size else np.zeros(sae.d_sae, dtype=np.float32)
+    mean_without_all = feat_without.mean(axis=0) if feat_without.size else np.zeros(sae.d_sae, dtype=np.float32)
+    mean_medqa_all = feat_medqa.mean(axis=0) if feat_medqa.size else np.zeros(sae.d_sae, dtype=np.float32)
+
     for feature_idx in tqdm(candidates, desc=f"L{layer} context filter", leave=False):
-        mean_with = mean_feature_activation(model, tokenizer, sae, pqa_subset, layer, feature_idx, True)
-        mean_without = mean_feature_activation(model, tokenizer, sae, pqa_subset, layer, feature_idx, False)
-        mean_medqa = mean_feature_activation(
-            model,
-            tokenizer,
-            sae,
-            medqa_subset,
-            layer,
-            feature_idx,
-            formatter=format_medqa,
-        )
+        mean_with = float(mean_with_all[int(feature_idx)])
+        mean_without = float(mean_without_all[int(feature_idx)])
+        mean_medqa = float(mean_medqa_all[int(feature_idx)])
         is_context_specific = mean_with > without_ratio * max(mean_without, 1e-8) and mean_medqa < medqa_max
         stats[str(feature_idx)] = {
             "mean_with_context": mean_with,

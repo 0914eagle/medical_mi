@@ -68,6 +68,10 @@ def main():
     parser.add_argument("--model", default="qwen3.5-9b")
     parser.add_argument("--folds", type=int, default=10)
     parser.add_argument("--layers", nargs="+", default=["20", "18", "22"])
+    parser.add_argument("--max-feature-cases", type=int, default=100)
+    parser.add_argument("--max-filter-items", type=int, default=50)
+    parser.add_argument("--max-alpha-tune-cases", type=int, default=100)
+    parser.add_argument("--max-steering-cases", type=int, default=None)
     parser.add_argument("--backup-existing", action="store_true")
     parser.add_argument("--skip-eval", action="store_true")
     parser.add_argument("--skip-steering", action="store_true")
@@ -96,7 +100,14 @@ def main():
                 str(args.folds),
                 "--layers",
                 *args.layers,
+                "--max-feature-cases",
+                str(args.max_feature_cases),
+                "--max-filter-items",
+                str(args.max_filter_items),
+                "--max-alpha-tune-cases",
+                str(args.max_alpha_tune_cases),
             ]
+            + (["--max-steering-cases", str(args.max_steering_cases)] if args.max_steering_cases else [])
         )
 
     if args.run_ceiling:

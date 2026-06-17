@@ -54,6 +54,7 @@ def main():
     parser.add_argument("--alphas", type=float, nargs="+", default=[5.0, 7.0, 10.0, 15.0, 20.0])
     parser.add_argument("--max-feature-cases", type=int, default=100)
     parser.add_argument("--max-filter-items", type=int, default=50)
+    parser.add_argument("--max-alpha-tune-cases", type=int, default=100)
     parser.add_argument("--max-steering-cases", type=int, default=None)
     parser.add_argument("--official-test-ids", default=None)
     parser.add_argument("--use-official-test", action="store_true")
@@ -175,7 +176,7 @@ def main():
                     val_correct,
                     layer_to_vec,
                     alpha,
-                    max_cases=args.max_steering_cases,
+                    max_cases=args.max_alpha_tune_cases,
                 )
                 alpha_rows.append(
                     {

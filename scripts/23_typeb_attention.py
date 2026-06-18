@@ -113,6 +113,8 @@ def context_attention(model, tokenizer, item, layer):
     attentions = outputs.attentions
     if attentions is None:
         return None
+    if layer >= len(attentions):
+        return {"error": "layer_out_of_range", "n_attention_layers": len(attentions), "requested_layer": layer}
     attn = attentions[layer][0, :, -1, ctx_indices].sum(dim=-1).detach().float().cpu().numpy()
     return {
         "mean": float(attn.mean()),
@@ -171,6 +173,16 @@ def main():
                 attn = context_attention(model, tokenizer, entry["item"], layer)
                 if attn is None:
                     continue
+                if "error" in attn:
+                    case_results.append(
+                        {
+                            "layer": layer,
+                            "group": label,
+                            "item_id": row_id(entry["row"]),
+                            "attention": attn,
+                        }
+                    )
+                    break
                 layer_group_values[label].append(attn["mean"])
                 layer_head_values[label].append(attn["heads"])
                 case_results.append(

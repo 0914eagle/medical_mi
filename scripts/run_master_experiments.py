@@ -80,6 +80,11 @@ def main():
     parser.add_argument("--run-medabstain", action="store_true")
     parser.add_argument("--run-medabstain-diagnostics", action="store_true")
     parser.add_argument("--run-cai", action="store_true")
+    parser.add_argument("--run-official-pubmedqa", action="store_true")
+    parser.add_argument("--official-test-ids", default=None)
+    parser.add_argument("--allow-official-download", action="store_true")
+    parser.add_argument("--run-risk-coverage", action="store_true")
+    parser.add_argument("--run-medabstain-independent", action="store_true")
     parser.add_argument("--rxllm-jsonl", default=None)
     args = parser.parse_args()
 
@@ -124,6 +129,20 @@ def main():
 
     if args.run_cai:
         run_cmd(["python3", f"{SCRIPTS_DIR}/18_cai_policy_eval.py", "--model", args.model])
+
+    if args.run_official_pubmedqa:
+        cmd = ["python3", f"{SCRIPTS_DIR}/19_pubmedqa_official_test_eval.py", "--model", args.model]
+        if args.official_test_ids:
+            cmd += ["--official-test-ids", args.official_test_ids]
+        if args.allow_official_download:
+            cmd += ["--allow-download"]
+        run_cmd(cmd)
+
+    if args.run_risk_coverage:
+        run_cmd(["python3", f"{SCRIPTS_DIR}/20_cai_risk_coverage.py", "--model", args.model])
+
+    if args.run_medabstain_independent:
+        run_cmd(["python3", f"{SCRIPTS_DIR}/21_medabstain_independent_conflict.py", "--model", args.model])
 
     if args.rxllm_jsonl:
         run_cmd(

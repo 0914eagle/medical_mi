@@ -85,6 +85,9 @@ def main():
     parser.add_argument("--allow-official-download", action="store_true")
     parser.add_argument("--run-risk-coverage", action="store_true")
     parser.add_argument("--run-medabstain-independent", action="store_true")
+    parser.add_argument("--run-typeb-behavioral", action="store_true")
+    parser.add_argument("--run-typeb-attention", action="store_true")
+    parser.add_argument("--conflict-set", default=None)
     parser.add_argument("--rxllm-jsonl", default=None)
     args = parser.parse_args()
 
@@ -143,6 +146,18 @@ def main():
 
     if args.run_medabstain_independent:
         run_cmd(["python3", f"{SCRIPTS_DIR}/21_medabstain_independent_conflict.py", "--model", args.model])
+
+    if args.run_typeb_behavioral:
+        cmd = ["python3", f"{SCRIPTS_DIR}/22_typeb_behavioral_signals.py", "--model", args.model]
+        if args.conflict_set:
+            cmd += ["--conflict-set", args.conflict_set]
+        run_cmd(cmd)
+
+    if args.run_typeb_attention:
+        cmd = ["python3", f"{SCRIPTS_DIR}/23_typeb_attention.py", "--model", args.model]
+        if args.conflict_set:
+            cmd += ["--conflict-set", args.conflict_set]
+        run_cmd(cmd)
 
     if args.rxllm_jsonl:
         run_cmd(

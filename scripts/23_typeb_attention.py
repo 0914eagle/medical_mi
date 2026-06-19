@@ -142,12 +142,21 @@ def context_attention_with_hook(model, tokenizer, prompt, ctx_indices, layer):
         return {"error": "transformer_layer_out_of_range", "n_transformer_layers": len(model.model.layers), "requested_layer": layer}
 
     captured = {}
+    layer_module = model.model.layers[layer]
+    attention_module, attention_module_name = find_attention_module(layer_module)
+    if attention_module is None:
+        return {
+            "error": "attention_module_not_found",
+            "layer_children": [name for name, _ in layer_module.named_children()],
+            "requested_layer": layer,
+        }
 
     def hook_fn(module, inputs, output):
-        if isinstance(output, tuple) and len(output) > 1 and output[1] is not None:
-            captured["attn"] = output[1].detach()
+        tensor = find_attention_tensor(output)
+        if tensor is not None:
+            captured["attn"] = tensor.detach()
 
-    handle = model.model.layers[layer].self_attn.register_forward_hook(hook_fn)
+    handle = attention_module.register_forward_hook(hook_fn)
     tokenized = tokenizer(prompt, return_tensors="pt", truncation=True, max_length=2048).to(model.device)
     try:
         with torch.no_grad():
@@ -168,7 +177,56 @@ def context_attention_with_hook(model, tokenizer, prompt, ctx_indices, layer):
         "heads": attn.tolist(),
         "n_context_tokens": len(ctx_indices),
         "source": "self_attn_forward_hook",
+        "attention_module_name": attention_module_name,
     }
+
+
+def find_attention_module(layer_module):
+    preferred_names = [
+        "self_attn",
+        "attention",
+        "attn",
+        "linear_attn",
+        "linear_attention",
+        "hybrid_attn",
+        "hybrid_attention",
+    ]
+    for name in preferred_names:
+        if hasattr(layer_module, name):
+            return getattr(layer_module, name), name
+
+    for name, module in layer_module.named_children():
+        lowered = name.lower()
+        class_name = module.__class__.__name__.lower()
+        if "attn" in lowered or "attention" in lowered or "attn" in class_name or "attention" in class_name:
+            return module, name
+
+    for name, module in layer_module.named_modules():
+        if not name:
+            continue
+        lowered = name.lower()
+        class_name = module.__class__.__name__.lower()
+        if "attn" in lowered or "attention" in lowered or "attn" in class_name or "attention" in class_name:
+            return module, name
+    return None, None
+
+
+def find_attention_tensor(output):
+    if torch.is_tensor(output):
+        if output.dim() == 4:
+            return output
+        return None
+    if isinstance(output, (tuple, list)):
+        for value in output:
+            found = find_attention_tensor(value)
+            if found is not None:
+                return found
+    if isinstance(output, dict):
+        for value in output.values():
+            found = find_attention_tensor(value)
+            if found is not None:
+                return found
+    return None
 
 
 def attention_diagnostics(model, tokenizer, item):
@@ -178,6 +236,11 @@ def attention_diagnostics(model, tokenizer, item):
         outputs = model(**tokenized, output_attentions=True, use_cache=False)
     attentions = outputs.attentions
     shapes = [list(attn.shape) for attn in attentions] if attentions is not None else []
+    layer_children = []
+    layer_module_names = []
+    if hasattr(model, "model") and hasattr(model.model, "layers") and len(model.model.layers) > 0:
+        layer_children = [name for name, _ in model.model.layers[0].named_children()]
+        layer_module_names = [name for name, _ in model.model.layers[0].named_modules() if name][:20]
     return {
         "config_num_hidden_layers": getattr(model.config, "num_hidden_layers", None),
         "config_num_attention_heads": getattr(model.config, "num_attention_heads", None),
@@ -186,6 +249,8 @@ def attention_diagnostics(model, tokenizer, item):
         "actual_transformer_layers": len(model.model.layers) if hasattr(model, "model") and hasattr(model.model, "layers") else None,
         "returned_attention_layers": len(attentions) if attentions is not None else 0,
         "attention_shapes_first_3": shapes[:3],
+        "layer0_children": layer_children,
+        "layer0_named_modules_first_20": layer_module_names,
     }
 
 

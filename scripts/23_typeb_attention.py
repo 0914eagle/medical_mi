@@ -119,6 +119,9 @@ def context_attention(model, tokenizer, item, layer):
     if attentions is None:
         return context_attention_with_hook(model, tokenizer, prompt, ctx_indices, layer)
     if layer >= len(attentions):
+        mapped = compressed_attention_from_outputs(model, attentions, layer, ctx_indices)
+        if mapped is not None:
+            return mapped
         hooked = context_attention_with_hook(model, tokenizer, prompt, ctx_indices, layer)
         if hooked is not None:
             hooked["fallback_reason"] = "model_output_layer_out_of_range"
@@ -132,6 +135,29 @@ def context_attention(model, tokenizer, item, layer):
         "min_head": float(attn.min()),
         "heads": attn.tolist(),
         "n_context_tokens": len(ctx_indices),
+    }
+
+
+def compressed_attention_from_outputs(model, attentions, requested_layer, ctx_indices):
+    n_returned = len(attentions)
+    n_layers = getattr(model.config, "num_hidden_layers", None)
+    if not n_layers or n_returned <= 0 or n_returned >= n_layers:
+        return None
+    mapped_index = int(requested_layer * n_returned / n_layers)
+    mapped_index = min(max(mapped_index, 0), n_returned - 1)
+    attn = attentions[mapped_index][0, :, -1, ctx_indices].sum(dim=-1).detach().float().cpu().numpy()
+    return {
+        "mean": float(attn.mean()),
+        "max_head": float(attn.max()),
+        "min_head": float(attn.min()),
+        "heads": attn.tolist(),
+        "n_context_tokens": len(ctx_indices),
+        "source": "compressed_model_output_attentions",
+        "requested_transformer_layer": requested_layer,
+        "mapped_attention_index": mapped_index,
+        "returned_attention_layers": n_returned,
+        "config_num_hidden_layers": n_layers,
+        "mapping_note": "Model returned fewer attention tensors than transformer layers; requested layer was mapped proportionally.",
     }
 
 

@@ -2,17 +2,14 @@
   "model": "qwen3.5-9b",
   "source_path": "/workspace/medical_mi/qwen3.5-9b_conflict_set.json",
   "layers": [
-    16,
-    18,
-    20,
-    22,
-    24
+    16
   ],
   "attention_diagnostics": {
     "config_num_hidden_layers": 32,
     "config_num_attention_heads": 16,
     "config_num_key_value_heads": 4,
     "config_attn_implementation": "eager",
+    "actual_transformer_layers": 32,
     "returned_attention_layers": 8,
     "attention_shapes_first_3": [
       [
@@ -33,33 +30,41 @@
         324,
         324
       ]
+    ],
+    "layer0_children": [
+      "linear_attn",
+      "mlp",
+      "input_layernorm",
+      "post_attention_layernorm"
+    ],
+    "layer0_named_modules_first_20": [
+      "linear_attn",
+      "linear_attn.act",
+      "linear_attn.conv1d",
+      "linear_attn.norm",
+      "linear_attn.out_proj",
+      "linear_attn.in_proj_qkv",
+      "linear_attn.in_proj_z",
+      "linear_attn.in_proj_b",
+      "linear_attn.in_proj_a",
+      "mlp",
+      "mlp.gate_proj",
+      "mlp.up_proj",
+      "mlp.down_proj",
+      "mlp.act_fn",
+      "input_layernorm",
+      "post_attention_layernorm"
     ]
   },
-  "max_cases_per_group": 30,
+  "max_cases_per_group": 1,
   "sample_counts": {
-    "typeB_weak": 26,
-    "typeB_confident_ignore": 23,
-    "correct": 30,
-    "typeA_processing": 30
+    "typeB_weak": 1,
+    "typeB_confident_ignore": 1,
+    "correct": 1,
+    "typeA_processing": 1
   },
   "layer_results": {
     "16": {
-      "group_summary": {},
-      "head_summary": {}
-    },
-    "18": {
-      "group_summary": {},
-      "head_summary": {}
-    },
-    "20": {
-      "group_summary": {},
-      "head_summary": {}
-    },
-    "22": {
-      "group_summary": {},
-      "head_summary": {}
-    },
-    "24": {
       "group_summary": {},
       "head_summary": {}
     }
@@ -103,166 +108,6 @@
         "error": "layer_out_of_range",
         "n_attention_layers": 8,
         "requested_layer": 16
-      }
-    },
-    {
-      "layer": 18,
-      "group": "typeB_weak",
-      "item_id": "15919266",
-      "attention": {
-        "error": "layer_out_of_range",
-        "n_attention_layers": 8,
-        "requested_layer": 18
-      }
-    },
-    {
-      "layer": 18,
-      "group": "typeB_confident_ignore",
-      "item_id": "16249670",
-      "attention": {
-        "error": "layer_out_of_range",
-        "n_attention_layers": 8,
-        "requested_layer": 18
-      }
-    },
-    {
-      "layer": 18,
-      "group": "correct",
-      "item_id": "11138995",
-      "attention": {
-        "error": "layer_out_of_range",
-        "n_attention_layers": 8,
-        "requested_layer": 18
-      }
-    },
-    {
-      "layer": 18,
-      "group": "typeA_processing",
-      "item_id": "21164063",
-      "attention": {
-        "error": "layer_out_of_range",
-        "n_attention_layers": 8,
-        "requested_layer": 18
-      }
-    },
-    {
-      "layer": 20,
-      "group": "typeB_weak",
-      "item_id": "15919266",
-      "attention": {
-        "error": "layer_out_of_range",
-        "n_attention_layers": 8,
-        "requested_layer": 20
-      }
-    },
-    {
-      "layer": 20,
-      "group": "typeB_confident_ignore",
-      "item_id": "16249670",
-      "attention": {
-        "error": "layer_out_of_range",
-        "n_attention_layers": 8,
-        "requested_layer": 20
-      }
-    },
-    {
-      "layer": 20,
-      "group": "correct",
-      "item_id": "11138995",
-      "attention": {
-        "error": "layer_out_of_range",
-        "n_attention_layers": 8,
-        "requested_layer": 20
-      }
-    },
-    {
-      "layer": 20,
-      "group": "typeA_processing",
-      "item_id": "21164063",
-      "attention": {
-        "error": "layer_out_of_range",
-        "n_attention_layers": 8,
-        "requested_layer": 20
-      }
-    },
-    {
-      "layer": 22,
-      "group": "typeB_weak",
-      "item_id": "15919266",
-      "attention": {
-        "error": "layer_out_of_range",
-        "n_attention_layers": 8,
-        "requested_layer": 22
-      }
-    },
-    {
-      "layer": 22,
-      "group": "typeB_confident_ignore",
-      "item_id": "16249670",
-      "attention": {
-        "error": "layer_out_of_range",
-        "n_attention_layers": 8,
-        "requested_layer": 22
-      }
-    },
-    {
-      "layer": 22,
-      "group": "correct",
-      "item_id": "11138995",
-      "attention": {
-        "error": "layer_out_of_range",
-        "n_attention_layers": 8,
-        "requested_layer": 22
-      }
-    },
-    {
-      "layer": 22,
-      "group": "typeA_processing",
-      "item_id": "21164063",
-      "attention": {
-        "error": "layer_out_of_range",
-        "n_attention_layers": 8,
-        "requested_layer": 22
-      }
-    },
-    {
-      "layer": 24,
-      "group": "typeB_weak",
-      "item_id": "15919266",
-      "attention": {
-        "error": "layer_out_of_range",
-        "n_attention_layers": 8,
-        "requested_layer": 24
-      }
-    },
-    {
-      "layer": 24,
-      "group": "typeB_confident_ignore",
-      "item_id": "16249670",
-      "attention": {
-        "error": "layer_out_of_range",
-        "n_attention_layers": 8,
-        "requested_layer": 24
-      }
-    },
-    {
-      "layer": 24,
-      "group": "correct",
-      "item_id": "11138995",
-      "attention": {
-        "error": "layer_out_of_range",
-        "n_attention_layers": 8,
-        "requested_layer": 24
-      }
-    },
-    {
-      "layer": 24,
-      "group": "typeA_processing",
-      "item_id": "21164063",
-      "attention": {
-        "error": "layer_out_of_range",
-        "n_attention_layers": 8,
-        "requested_layer": 24
       }
     }
   ]

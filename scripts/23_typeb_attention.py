@@ -56,7 +56,7 @@ def load_conflict_set(path, model):
     raise FileNotFoundError(f"Could not find conflict_set for {model}")
 
 
-def load_attention_model(model_name):
+def load_attention_model(model_name, attn_implementation):
     tokenizer = AutoTokenizer.from_pretrained(MODELS[model_name], trust_remote_code=True)
     try:
         model = AutoModelForCausalLM.from_pretrained(
@@ -64,7 +64,7 @@ def load_attention_model(model_name):
             torch_dtype=torch.float16,
             device_map="auto",
             trust_remote_code=True,
-            attn_implementation="eager",
+            attn_implementation=attn_implementation,
         )
     except TypeError:
         model = AutoModelForCausalLM.from_pretrained(
@@ -73,6 +73,11 @@ def load_attention_model(model_name):
             device_map="auto",
             trust_remote_code=True,
         )
+    if hasattr(model.config, "_attn_implementation"):
+        model.config._attn_implementation = attn_implementation
+    if hasattr(model.config, "attn_implementation"):
+        model.config.attn_implementation = attn_implementation
+    model.config.output_attentions = True
     model.eval()
     return model, tokenizer
 
@@ -125,6 +130,23 @@ def context_attention(model, tokenizer, item, layer):
     }
 
 
+def attention_diagnostics(model, tokenizer, item):
+    prompt = format_pubmedqa(item, tokenizer, include_context=True)
+    tokenized = tokenizer(prompt, return_tensors="pt", truncation=True, max_length=2048).to(model.device)
+    with torch.no_grad():
+        outputs = model(**tokenized, output_attentions=True, use_cache=False)
+    attentions = outputs.attentions
+    shapes = [list(attn.shape) for attn in attentions] if attentions is not None else []
+    return {
+        "config_num_hidden_layers": getattr(model.config, "num_hidden_layers", None),
+        "config_num_attention_heads": getattr(model.config, "num_attention_heads", None),
+        "config_num_key_value_heads": getattr(model.config, "num_key_value_heads", None),
+        "config_attn_implementation": getattr(model.config, "_attn_implementation", None),
+        "returned_attention_layers": len(attentions) if attentions is not None else 0,
+        "attention_shapes_first_3": shapes[:3],
+    }
+
+
 def summarize(values):
     if not values:
         return {"n": 0, "mean": 0.0, "std": 0.0}
@@ -143,6 +165,8 @@ def main():
     parser.add_argument("--max-cases-per-group", type=int, default=30)
     parser.add_argument("--seed", type=int, default=13)
     parser.add_argument("--confident-threshold", type=float, default=0.7)
+    parser.add_argument("--attn-implementation", default="eager")
+    parser.add_argument("--diagnose-only", action="store_true")
     args = parser.parse_args()
 
     data, source_path = load_conflict_set(args.conflict_set, args.model)
@@ -162,7 +186,25 @@ def main():
         rng.shuffle(shuffled)
         sampled[label] = shuffled[: args.max_cases_per_group]
 
-    model, tokenizer = load_attention_model(args.model)
+    model, tokenizer = load_attention_model(args.model, args.attn_implementation)
+    diagnostic_item = next(iter(sampled.values()))[0]["item"]
+    diagnostics = attention_diagnostics(model, tokenizer, diagnostic_item)
+    print("Attention diagnostics:")
+    print(diagnostics)
+    if args.diagnose_only:
+        output_path = f"{RESULTS_DIR}/typeb_attention/{args.model}_typeb_attention_diagnostics.json"
+        write_json(
+            output_path,
+            {
+                "model": args.model,
+                "source_path": source_path,
+                "diagnostics": diagnostics,
+                "sample_counts": {label: len(rows) for label, rows in sampled.items()},
+            },
+        )
+        print(f"Saved attention diagnostics to {output_path}")
+        return
+
     layer_results = {}
     case_results = []
     for layer in args.layers:
@@ -213,6 +255,7 @@ def main():
         "model": args.model,
         "source_path": source_path,
         "layers": args.layers,
+        "attention_diagnostics": diagnostics,
         "max_cases_per_group": args.max_cases_per_group,
         "sample_counts": {label: len(rows) for label, rows in sampled.items()},
         "layer_results": layer_results,

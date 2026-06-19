@@ -117,8 +117,13 @@ def context_attention(model, tokenizer, item, layer):
         outputs = model(**tokenized, output_attentions=True)
     attentions = outputs.attentions
     if attentions is None:
-        return None
+        return context_attention_with_hook(model, tokenizer, prompt, ctx_indices, layer)
     if layer >= len(attentions):
+        hooked = context_attention_with_hook(model, tokenizer, prompt, ctx_indices, layer)
+        if hooked is not None:
+            hooked["fallback_reason"] = "model_output_layer_out_of_range"
+            hooked["model_output_attention_layers"] = len(attentions)
+            return hooked
         return {"error": "layer_out_of_range", "n_attention_layers": len(attentions), "requested_layer": layer}
     attn = attentions[layer][0, :, -1, ctx_indices].sum(dim=-1).detach().float().cpu().numpy()
     return {
@@ -127,6 +132,42 @@ def context_attention(model, tokenizer, item, layer):
         "min_head": float(attn.min()),
         "heads": attn.tolist(),
         "n_context_tokens": len(ctx_indices),
+    }
+
+
+def context_attention_with_hook(model, tokenizer, prompt, ctx_indices, layer):
+    if not hasattr(model, "model") or not hasattr(model.model, "layers"):
+        return None
+    if layer >= len(model.model.layers):
+        return {"error": "transformer_layer_out_of_range", "n_transformer_layers": len(model.model.layers), "requested_layer": layer}
+
+    captured = {}
+
+    def hook_fn(module, inputs, output):
+        if isinstance(output, tuple) and len(output) > 1 and output[1] is not None:
+            captured["attn"] = output[1].detach()
+
+    handle = model.model.layers[layer].self_attn.register_forward_hook(hook_fn)
+    tokenized = tokenizer(prompt, return_tensors="pt", truncation=True, max_length=2048).to(model.device)
+    try:
+        with torch.no_grad():
+            model(**tokenized, output_attentions=True, use_cache=False)
+    finally:
+        handle.remove()
+
+    if "attn" not in captured:
+        return None
+    attn_tensor = captured["attn"]
+    if attn_tensor.dim() != 4:
+        return {"error": "unexpected_hook_attention_shape", "shape": list(attn_tensor.shape)}
+    attn = attn_tensor[0, :, -1, ctx_indices].sum(dim=-1).detach().float().cpu().numpy()
+    return {
+        "mean": float(attn.mean()),
+        "max_head": float(attn.max()),
+        "min_head": float(attn.min()),
+        "heads": attn.tolist(),
+        "n_context_tokens": len(ctx_indices),
+        "source": "self_attn_forward_hook",
     }
 
 
@@ -142,6 +183,7 @@ def attention_diagnostics(model, tokenizer, item):
         "config_num_attention_heads": getattr(model.config, "num_attention_heads", None),
         "config_num_key_value_heads": getattr(model.config, "num_key_value_heads", None),
         "config_attn_implementation": getattr(model.config, "_attn_implementation", None),
+        "actual_transformer_layers": len(model.model.layers) if hasattr(model, "model") and hasattr(model.model, "layers") else None,
         "returned_attention_layers": len(attentions) if attentions is not None else 0,
         "attention_shapes_first_3": shapes[:3],
     }

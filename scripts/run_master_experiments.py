@@ -87,6 +87,8 @@ def main():
     parser.add_argument("--run-medabstain-independent", action="store_true")
     parser.add_argument("--run-typeb-behavioral", action="store_true")
     parser.add_argument("--run-typeb-attention", action="store_true")
+    parser.add_argument("--run-typeb-features", action="store_true")
+    parser.add_argument("--run-typeb-combined", action="store_true")
     parser.add_argument("--conflict-set", default=None)
     parser.add_argument("--rxllm-jsonl", default=None)
     args = parser.parse_args()
@@ -155,6 +157,38 @@ def main():
 
     if args.run_typeb_attention:
         cmd = ["python3", f"{SCRIPTS_DIR}/23_typeb_attention.py", "--model", args.model]
+        if args.conflict_set:
+            cmd += ["--conflict-set", args.conflict_set]
+        run_cmd(cmd)
+
+    if args.run_typeb_features:
+        cmd = [
+            "python3",
+            f"{SCRIPTS_DIR}/24_typeb_sae_features.py",
+            "--model",
+            args.model,
+            "--folds",
+            str(args.folds),
+            "--layers",
+            *args.layers,
+            "--max-feature-cases",
+            str(args.max_feature_cases),
+        ]
+        if args.conflict_set:
+            cmd += ["--conflict-set", args.conflict_set]
+        run_cmd(cmd)
+
+    if args.run_typeb_combined:
+        cmd = [
+            "python3",
+            f"{SCRIPTS_DIR}/25_typeb_combined_risk_coverage.py",
+            "--model",
+            args.model,
+            "--folds",
+            str(args.folds),
+            "--layer",
+            args.layers[0],
+        ]
         if args.conflict_set:
             cmd += ["--conflict-set", args.conflict_set]
         run_cmd(cmd)

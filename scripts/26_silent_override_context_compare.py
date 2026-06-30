@@ -123,12 +123,14 @@ def feature_ids_from_typeb_fold(layer_result, source):
 def build_fold_inputs(typeb_data, cv_data, layer, correct_dominant_source):
     fold_inputs = {}
     typeb_by_fold = {fold["fold"]: fold for fold in typeb_data.get("folds", [])}
+    split_by_fold = {split["fold"]: split for split in typeb_data.get("splits", [])}
     cv_by_fold = {fold["fold"]: fold for fold in cv_data.get("folds", [])} if cv_data else {}
     for fold_id, typeb_fold in typeb_by_fold.items():
         typeb_layer = typeb_fold.get("layer_results", {}).get(str(layer), {})
         cv_layer = cv_by_fold.get(fold_id, {}).get("layer_info", {}).get(str(layer), {})
+        test_ids = typeb_fold.get("test_ids") or split_by_fold.get(fold_id, {}).get("test_ids", [])
         fold_inputs[fold_id] = {
-            "test_ids": [str(item_id) for item_id in typeb_fold.get("test_ids", [])],
+            "test_ids": [str(item_id) for item_id in test_ids],
             "correct_dominant_features": feature_ids_from_typeb_fold(typeb_layer, correct_dominant_source),
             "context_specific_features": cv_layer.get("cs_correct", []),
             "context_specific_wrong_features": cv_layer.get("cs_wrong", []),
@@ -202,7 +204,19 @@ def main():
         base_counts = defaultdict(int)
         for row in rows:
             base_counts["correct" if row["context_answer"] == row["ground_truth"] else "wrong"] += 1
-        print(json.dumps({"conflict_path": conflict_path, "typeb_path": typeb_path, "context_cv_path": cv_path, "counts": base_counts}, indent=2))
+        print(
+            json.dumps(
+                {
+                    "conflict_path": conflict_path,
+                    "typeb_path": typeb_path,
+                    "context_cv_path": cv_path,
+                    "n_test_ids": len(covered_ids),
+                    "n_matched_rows": len(rows),
+                    "counts": dict(base_counts),
+                },
+                indent=2,
+            )
+        )
         return
 
     items = load_pubmedqa_items()

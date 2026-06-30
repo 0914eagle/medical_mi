@@ -1,0 +1,95 @@
+{
+  "model": "qwen3.5-9b",
+  "layer": 20,
+  "inputs": {
+    "conflict_set": "/Users/heejae/Developer/medical_mi/qwen3.5-9b_conflict_set.json"
+  },
+  "outputs": {
+    "context_compare": "/Users/heejae/Developer/medical_mi/results/silent_override/qwen3.5-9b_silent_override_context_compare_L20.json",
+    "resistance_behavior": "/Users/heejae/Developer/medical_mi/results/silent_override/qwen3.5-9b_resistance_behavior_L20.json",
+    "feature_justification": "/Users/heejae/Developer/medical_mi/results/feature_justification/qwen3.5-9b_feature_justification_L20_cs_correct.json"
+  },
+  "steps": [
+    {
+      "cmd": [
+        "python3",
+        "/Users/heejae/Developer/medical_mi/scripts/28_resistance_behavior_analysis.py",
+        "--model",
+        "qwen3.5-9b",
+        "--layer",
+        "20",
+        "--conflict-set",
+        "/Users/heejae/Developer/medical_mi/qwen3.5-9b_conflict_set.json",
+        "--context-compare-path",
+        "/Users/heejae/Developer/medical_mi/results/silent_override/qwen3.5-9b_silent_override_context_compare_L20.json",
+        "--output-path",
+        "/Users/heejae/Developer/medical_mi/results/silent_override/qwen3.5-9b_resistance_behavior_L20.json",
+        "--dry-run"
+      ],
+      "status": "completed",
+      "output_path": null
+    }
+  ],
+  "context_compare_summary": null,
+  "resistance_summary": {
+    "group_source": "behavior_proxy",
+    "group_counts": {
+      "correct": 740,
+      "noisy_wrong": 122,
+      "silent_wrong": 138
+    },
+    "behavior_by_group": {
+      "correct": {
+        "n": 740,
+        "context_follow_C": 250,
+        "memory_follow_M": 490,
+        "memory_follow_rate": 0.6621621621621622
+      },
+      "noisy_wrong": {
+        "n": 122,
+        "context_follow_C": 122,
+        "memory_follow_M": 0,
+        "memory_follow_rate": 0.0
+      },
+      "silent_wrong": {
+        "n": 138,
+        "context_follow_C": 0,
+        "memory_follow_M": 138,
+        "memory_follow_rate": 1.0
+      }
+    },
+    "table": [
+      {
+        "group": "correct",
+        "n": 740,
+        "behavior_M_rate": 0.6621621621621622,
+        "resistance_mean": 0.8088049661449583,
+        "prior_held_mean": 0.6230710115725593,
+        "max_prob_mean": 0.7821900421492851,
+        "entropy_mean": 0.5456153633607508,
+        "margin_mean": 0.6284030060921408
+      },
+      {
+        "group": "noisy_wrong",
+        "n": 122,
+        "behavior_M_rate": 0.0,
+        "resistance_mean": 0.25381562063615815,
+        "prior_held_mean": 0.16654493960474767,
+        "max_prob_mean": 0.7206192860176686,
+        "entropy_mean": 0.6616336404303831,
+        "margin_mean": 0.5242695945645646
+      },
+      {
+        "group": "silent_wrong",
+        "n": 138,
+        "behavior_M_rate": 1.0,
+        "resistance_mean": 1.0488148207500536,
+        "prior_held_mean": 0.7672030486620891,
+        "max_prob_mean": 0.7740986922034496,
+        "entropy_mean": 0.552962407777588,
+        "margin_mean": 0.6093673349184693
+      }
+    ]
+  },
+  "feature_justification_summary": null
+}

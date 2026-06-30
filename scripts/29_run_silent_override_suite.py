@@ -86,6 +86,8 @@ def main():
     parser.add_argument("--run-steering", action="store_true")
     parser.add_argument("--steering-alpha", type=float, default=10.0)
     parser.add_argument("--max-steering-samples", type=int, default=100)
+    parser.add_argument("--store-control-text", action="store_true")
+    parser.add_argument("--control-text-max-chars", type=int, default=1200)
     parser.add_argument("--skip-context-compare", action="store_true")
     parser.add_argument("--skip-resistance", action="store_true")
     parser.add_argument("--skip-feature-justification", action="store_true")
@@ -214,6 +216,8 @@ def main():
                 "--max-steering-samples",
                 str(args.max_steering_samples),
             ]
+        if args.store_control_text:
+            cmd += ["--store-control-text", "--control-text-max-chars", str(args.control_text_max_chars)]
         if args.dry_run:
             cmd += ["--dry-run"]
         steps.append(run_cmd(cmd, skip_existing_path=None if args.dry_run else feature_justification_path, force=args.force))

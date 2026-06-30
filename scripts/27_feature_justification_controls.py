@@ -238,12 +238,21 @@ def make_length_control(item_id, real_context, tokenizer, filler_pool, rng):
     candidates = [row for row in filler_pool if row["item_id"] != item_id]
     rng.shuffle(candidates)
     pieces = []
+    source_ids = []
     for candidate in candidates:
         pieces.append(candidate["context"])
+        source_ids.append(candidate["item_id"])
         combined = " ".join(pieces)
         if len(tokenizer.encode(combined, add_special_tokens=False)) >= target_len:
-            return truncate_to_token_length(tokenizer, combined, target_len)
-    return truncate_to_token_length(tokenizer, " ".join(pieces), target_len)
+            return truncate_to_token_length(tokenizer, combined, target_len), source_ids
+    return truncate_to_token_length(tokenizer, " ".join(pieces), target_len), source_ids
+
+
+def text_excerpt(text, max_chars):
+    text = " ".join(str(text).split())
+    if len(text) <= max_chars:
+        return text
+    return text[:max_chars] + "..."
 
 
 def run_mi_experiment(model, tokenizer, sae, rows, items_by_id, layer, max_cases, top_k, binarize):
@@ -286,7 +295,20 @@ def summarize_control(rows, real_key, control_key):
     }
 
 
-def run_control_experiments(model, tokenizer, sae, rows, items_by_id, item_to_fold, fold_features, layer, max_samples, seed):
+def run_control_experiments(
+    model,
+    tokenizer,
+    sae,
+    rows,
+    items_by_id,
+    item_to_fold,
+    fold_features,
+    layer,
+    max_samples,
+    seed,
+    store_text,
+    text_max_chars,
+):
     rng = random.Random(seed)
     eligible = [
         row
@@ -307,7 +329,7 @@ def run_control_experiments(model, tokenizer, sae, rows, items_by_id, item_to_fo
         features = fold_features[fold_id]["features"]
         real_context = pubmedqa_context_text(item)
         flipped_context, flipped_changed, flip_info = flip_conclusion(real_context)
-        filler_context = make_length_control(item_id, real_context, tokenizer, filler_pool, rng)
+        filler_context, filler_source_ids = make_length_control(item_id, real_context, tokenizer, filler_pool, rng)
         shuffled_context = shuffle_context(real_context, rng)
 
         variants = {
@@ -321,32 +343,52 @@ def run_control_experiments(model, tokenizer, sae, rows, items_by_id, item_to_fo
             encoded = sae_encode_item(model, tokenizer, sae, variant, layer)
             signals[name] = selected_signal(encoded, features)
 
-        control_rows.append(
-            {
-                "item_id": item_id,
-                "fold": fold_id,
-                "ground_truth": row.get("ground_truth"),
-                "prior_answer": row.get("prior_answer"),
-                "context_answer": row.get("context_answer"),
-                "behavior_label": "C" if behavior_label(row) else "M",
-                "n_features": len(features),
-                "real_signal": signals["real"],
-                "flipped_signal": signals["flipped"],
-                "length_control_signal": signals["length_control"],
-                "shuffled_signal": signals["shuffled"],
-                "abs_real_minus_flipped": abs(signals["real"] - signals["flipped"]),
-                "flip_changed": flipped_changed,
-                "flip_info": flip_info,
-                "real_context_tokens": len(tokenizer.encode(real_context, add_special_tokens=False)),
-                "length_control_tokens": len(tokenizer.encode(filler_context, add_special_tokens=False)),
-            }
-        )
+        case_row = {
+            "item_id": item_id,
+            "fold": fold_id,
+            "ground_truth": row.get("ground_truth"),
+            "prior_answer": row.get("prior_answer"),
+            "context_answer": row.get("context_answer"),
+            "behavior_label": "C" if behavior_label(row) else "M",
+            "n_features": len(features),
+            "real_signal": signals["real"],
+            "flipped_signal": signals["flipped"],
+            "length_control_signal": signals["length_control"],
+            "shuffled_signal": signals["shuffled"],
+            "abs_real_minus_flipped": abs(signals["real"] - signals["flipped"]),
+            "flip_changed": flipped_changed,
+            "flip_info": flip_info,
+            "length_control_source": "other_pubmedqa_abstracts_same_token_length",
+            "length_control_source_item_ids": filler_source_ids,
+            "real_context_tokens": len(tokenizer.encode(real_context, add_special_tokens=False)),
+            "flipped_context_tokens": len(tokenizer.encode(flipped_context, add_special_tokens=False)),
+            "length_control_tokens": len(tokenizer.encode(filler_context, add_special_tokens=False)),
+            "shuffled_context_tokens": len(tokenizer.encode(shuffled_context, add_special_tokens=False)),
+        }
+        if store_text:
+            case_row.update(
+                {
+                    "question": item.get("question"),
+                    "real_context_excerpt": text_excerpt(real_context, text_max_chars),
+                    "flipped_context_excerpt": text_excerpt(flipped_context, text_max_chars),
+                    "length_control_excerpt": text_excerpt(filler_context, text_max_chars),
+                    "shuffled_context_excerpt": text_excerpt(shuffled_context, text_max_chars),
+                }
+            )
+        control_rows.append(case_row)
 
     flipped_rows = [row for row in control_rows if row["flip_changed"]]
     return {
         "n_samples": len(control_rows),
         "n_flipped_changed": len(flipped_rows),
         "feature_source_note": "Each item uses the context-specific feature set from its held-out CV test fold.",
+        "input_generation_note": {
+            "content_flip": "Rule-based regex flip over the last sentence matching a known conclusion phrase; inspect flip_info and stored excerpts before interpreting.",
+            "length_control": "Other PubMedQA abstracts truncated to the same token length. This controls length, not medical-domain/context-ness.",
+            "shuffled_control": "Same words as the original context, randomly permuted.",
+            "text_stored": store_text,
+            "text_max_chars": text_max_chars if store_text else 0,
+        },
         "summary": {
             "content_flip_changed_only": summarize_control(flipped_rows, "real_signal", "flipped_signal"),
             "length_control": summarize_control(control_rows, "real_signal", "length_control_signal"),
@@ -480,6 +522,8 @@ def main():
     parser.add_argument("--run-steering", action="store_true")
     parser.add_argument("--steering-alpha", type=float, default=10.0)
     parser.add_argument("--max-steering-samples", type=int, default=100)
+    parser.add_argument("--store-control-text", action="store_true")
+    parser.add_argument("--control-text-max-chars", type=int, default=1200)
     parser.add_argument("--output-path", default=None)
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
@@ -563,6 +607,8 @@ def main():
             args.layer,
             args.max_control_samples,
             args.seed,
+            args.store_control_text,
+            args.control_text_max_chars,
         )
 
     if args.run_steering:

@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 # 1. 경로 설정
 export MEDICAL_MI_BASE_DIR="${MEDICAL_MI_BASE_DIR:-/home/eagle0914/medical_mi}"

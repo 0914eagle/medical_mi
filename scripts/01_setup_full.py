@@ -9,6 +9,18 @@ DATA_ROOT = os.environ.get("MEDICAL_MI_DATA_ROOT", "/data/heejae")
 os.environ.setdefault("HF_HOME", f"{DATA_ROOT}/.cache/huggingface")
 os.environ.setdefault("TMPDIR", f"{DATA_ROOT}/tmp")
 
+MODELS = {
+    "qwen3-8b": "Qwen/Qwen3-8B",
+    "qwen3.5-9b": "Qwen/Qwen3.5-9B",
+    "gemma3-12b-it": "google/gemma-3-12b-it",
+}
+
+SAE_REPOS = {
+    "qwen3-8b": "Qwen/SAE-Res-Qwen3-8B-Base-W64K-L0_50",
+    "qwen3.5-9b": "Qwen/SAE-Res-Qwen3.5-9B-Base-W64K-L0_50",
+    "gemma3-12b-it": "google/gemma-scope-2-12b-it",
+}
+
 def setup(models):
     base_dir = BASE_DIR
     checkpoint_dir = f"{DATA_ROOT}/checkpoints"
@@ -20,18 +32,6 @@ def setup(models):
     os.makedirs(f"{base_dir}/results/steering", exist_ok=True)
     os.makedirs(f"{base_dir}/results/figures", exist_ok=True)
     os.makedirs(os.environ["TMPDIR"], exist_ok=True)
-
-    MODELS = {
-        "qwen3-8b": "Qwen/Qwen3-8B",
-        "qwen3.5-9b": "Qwen/Qwen3.5-9B",
-        "gemma3-12b-it": "google/gemma-3-12b-it",
-    }
-
-    SAE_REPOS = {
-        "qwen3-8b": "Qwen/SAE-Res-Qwen3-8B-Base-W64K-L0_50",
-        "qwen3.5-9b": "Qwen/SAE-Res-Qwen3.5-9B-Base-W64K-L0_50",
-        "gemma3-12b-it": "google/gemma-scope-2-12b-it",
-    }
 
     selected_models = models or ["qwen3.5-9b"]
 

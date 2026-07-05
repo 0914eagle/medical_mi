@@ -3,14 +3,16 @@ import torch
 from huggingface_hub import snapshot_download
 from datasets import load_dataset
 
-# 환경 변수 강제 설정
-os.environ["HF_HOME"] = "/workspace/.cache/huggingface"
-os.environ["TMPDIR"] = "/workspace/.tmp"
+BASE_DIR = os.environ.get("MEDICAL_MI_BASE_DIR", "/home/eagle0914/medical_mi")
+DATA_ROOT = os.environ.get("MEDICAL_MI_DATA_ROOT", "/data/heejae")
+os.environ.setdefault("HF_HOME", f"{DATA_ROOT}/.cache/huggingface")
+os.environ.setdefault("TMPDIR", f"{DATA_ROOT}/tmp")
 
 def setup():
-    base_dir = "/workspace/medical_mi"
-    os.makedirs(f"{base_dir}/checkpoints/model", exist_ok=True)
-    os.makedirs(f"{base_dir}/checkpoints/sae", exist_ok=True)
+    base_dir = BASE_DIR
+    checkpoint_dir = f"{DATA_ROOT}/checkpoints"
+    os.makedirs(f"{checkpoint_dir}/model", exist_ok=True)
+    os.makedirs(f"{checkpoint_dir}/sae", exist_ok=True)
     os.makedirs(f"{base_dir}/data/raw", exist_ok=True)
     os.makedirs(f"{base_dir}/results/eval", exist_ok=True)
     os.makedirs(f"{base_dir}/results/features", exist_ok=True)
@@ -36,7 +38,7 @@ def setup():
             print(f"\nDownloading model: {name} ({repo})...")
             snapshot_download(
                 repo_id=repo,
-                local_dir=f"{base_dir}/checkpoints/model/{name}",
+                local_dir=f"{checkpoint_dir}/model/{name}",
                 local_dir_use_symlinks=False,
                 ignore_patterns=["*.msgpack", "flax_model*", "*.h5", "*.tflite", "*.onnx"]
             )
@@ -50,7 +52,7 @@ def setup():
             # Gemma Scope 2는 매우 크므로 resid_post 계열만 우선 시도하거나 전체 다운로드
             snapshot_download(
                 repo_id=repo,
-                local_dir=f"{base_dir}/checkpoints/sae/{name}",
+                local_dir=f"{checkpoint_dir}/sae/{name}",
                 local_dir_use_symlinks=False,
             )
         except Exception as e:

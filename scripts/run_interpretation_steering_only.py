@@ -3,7 +3,7 @@ import subprocess
 import os
 
 # --- Config ---
-BASE_DIR = "/workspace/medical_mi"
+BASE_DIR = "/home/eagle0914/medical_mi"
 SCRIPTS_DIR = f"{BASE_DIR}/scripts"
 
 def run_cmd(cmd):

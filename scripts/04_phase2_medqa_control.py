@@ -32,7 +32,7 @@ def main():
     path = MODELS[model_name]
     
     # Phase 1 결과 로드
-    features_path = f"/workspace/medical_mi/results/features/{model_name}_phase1_features.json"
+    features_path = f"/home/eagle0914/medical_mi/results/features/{model_name}_phase1_features.json"
     if not os.path.exists(features_path):
         print("Phase 1 features not found.")
         return

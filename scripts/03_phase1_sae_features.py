@@ -11,7 +11,7 @@ import gc
 from scipy.stats import ttest_ind
 
 # --- Config ---
-BASE_DIR = "/workspace/medical_mi"
+BASE_DIR = "/home/eagle0914/medical_mi"
 MODELS = {
     "qwen3-8b": f"{BASE_DIR}/checkpoints/model/qwen3-8b",
     "qwen3.5-9b": f"{BASE_DIR}/checkpoints/model/qwen3.5-9b",
@@ -38,7 +38,7 @@ def main():
     args = parser.parse_args()
 
     model_name = args.model
-    labels_path = f"/workspace/medical_mi/results/eval/{model_name}_labels.json"
+    labels_path = f"/home/eagle0914/medical_mi/results/eval/{model_name}_labels.json"
     
     if not os.path.exists(labels_path):
         print(f"Labels file not found: {labels_path}")

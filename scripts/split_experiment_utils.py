@@ -23,13 +23,16 @@ from utils import (
 )
 
 
-BASE_DIR = os.environ.get("MEDICAL_MI_BASE_DIR", "/workspace/medical_mi")
+BASE_DIR = os.environ.get("MEDICAL_MI_BASE_DIR", "/home/eagle0914/medical_mi")
+DATA_ROOT = os.environ.get("MEDICAL_MI_DATA_ROOT", "/data/heejae")
+os.environ.setdefault("HF_HOME", f"{DATA_ROOT}/.cache/huggingface")
+os.environ.setdefault("TMPDIR", f"{DATA_ROOT}/tmp")
 RESULTS_DIR = f"{BASE_DIR}/results"
 
 MODELS = {
-    "qwen3-8b": f"{BASE_DIR}/checkpoints/model/qwen3-8b",
-    "qwen3.5-9b": f"{BASE_DIR}/checkpoints/model/qwen3.5-9b",
-    "gemma3-12b-it": f"{BASE_DIR}/checkpoints/model/gemma3-12b-it",
+    "qwen3-8b": f"{DATA_ROOT}/checkpoints/model/qwen3-8b",
+    "qwen3.5-9b": f"{DATA_ROOT}/checkpoints/model/qwen3.5-9b",
+    "gemma3-12b-it": f"{DATA_ROOT}/checkpoints/model/gemma3-12b-it",
 }
 
 PUBMEDQA_OFFICIAL_TEST_URLS = [
@@ -57,15 +60,27 @@ def write_json(path, data):
 def load_model_and_tokenizer(model_name):
     if model_name not in MODELS:
         raise ValueError(f"Unknown model '{model_name}'. Available: {sorted(MODELS)}")
-    tokenizer = AutoTokenizer.from_pretrained(MODELS[model_name], trust_remote_code=True)
+    model_path = get_model_path(model_name)
+    tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
     model = AutoModelForCausalLM.from_pretrained(
-        MODELS[model_name],
+        model_path,
         torch_dtype=torch.float16,
         device_map="auto",
         trust_remote_code=True,
     )
     model.eval()
     return model, tokenizer
+
+
+def get_model_path(model_name):
+    candidates = [
+        f"{DATA_ROOT}/checkpoints/model/{model_name}",
+        f"{BASE_DIR}/checkpoints/model/{model_name}",
+    ]
+    for candidate in candidates:
+        if os.path.exists(candidate):
+            return candidate
+    return candidates[0]
 
 
 def load_pubmedqa_items():

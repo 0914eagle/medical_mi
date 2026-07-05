@@ -1,23 +1,30 @@
-import torch
 import os
+import torch
 
 # --- 전역 환경 설정 (01_setup_full.py와 동일하게 유지) ---
-os.environ["HF_HOME"] = "/workspace/.cache/huggingface"
-os.environ["TMPDIR"] = "/workspace/.tmp"
-BASE_DIR = "/workspace/medical_mi"
+BASE_DIR = os.environ.get("MEDICAL_MI_BASE_DIR", "/home/eagle0914/medical_mi")
+DATA_ROOT = os.environ.get("MEDICAL_MI_DATA_ROOT", "/data/heejae")
+os.environ.setdefault("HF_HOME", f"{DATA_ROOT}/.cache/huggingface")
+os.environ.setdefault("TMPDIR", f"{DATA_ROOT}/tmp")
 
 def get_sae_path(model_name, layer):
     """
     사용자가 확인한 layer{n}.sae.pt 구조를 최우선으로 탐색
     """
-    sae_base = f"{BASE_DIR}/checkpoints/sae/{model_name}"
-    
-    # 확인된 구조: layer20.sae.pt
-    path_options = [
-        f"{sae_base}/layer{layer}.sae.pt",
-        f"{sae_base}/layer_{layer}/res_64k/sae_weights.pt",
-        f"{sae_base}/layer_{layer}/res_64k/params.pt"
+    sae_bases = [
+        f"{DATA_ROOT}/checkpoints/sae/{model_name}",
+        f"{BASE_DIR}/checkpoints/sae/{model_name}",
     ]
+
+    path_options = []
+    for sae_base in sae_bases:
+        path_options.extend(
+            [
+                f"{sae_base}/layer{layer}.sae.pt",
+                f"{sae_base}/layer_{layer}/res_64k/sae_weights.pt",
+                f"{sae_base}/layer_{layer}/res_64k/params.pt",
+            ]
+        )
     
     for p in path_options:
         if os.path.exists(p):

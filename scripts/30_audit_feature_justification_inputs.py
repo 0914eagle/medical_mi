@@ -3,7 +3,7 @@ import json
 import os
 
 
-BASE_DIR = os.environ.get("MEDICAL_MI_BASE_DIR", "/workspace/medical_mi")
+BASE_DIR = os.environ.get("MEDICAL_MI_BASE_DIR", "/home/eagle0914/medical_mi")
 RESULTS_DIR = f"{BASE_DIR}/results"
 
 

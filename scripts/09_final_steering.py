@@ -9,7 +9,7 @@ from utils import format_pubmedqa, get_sae_path
 import gc
 
 # --- Config ---
-BASE_DIR = "/workspace/medical_mi"
+BASE_DIR = "/home/eagle0914/medical_mi"
 MODELS = {
     "qwen3.5-9b": f"{BASE_DIR}/checkpoints/model/qwen3.5-9b",
 }

@@ -10,7 +10,7 @@ from utils import format_pubmedqa, format_medqa, get_activation_with_hook, get_s
 import gc
 
 # --- Config ---
-BASE_DIR = "/workspace/medical_mi"
+BASE_DIR = "/home/eagle0914/medical_mi"
 MODEL_NAME = "qwen3.5-9b"
 LAYER = 20
 MODELS = {

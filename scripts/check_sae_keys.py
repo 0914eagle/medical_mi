@@ -26,5 +26,5 @@ def check_sae_keys(file_path):
 
 if __name__ == "__main__":
     # Test with layer 20 as discussed
-    target_path = "/workspace/medical_mi/checkpoints/sae/qwen3.5-9b/layer20.sae.pt"
+    target_path = "/home/eagle0914/medical_mi/checkpoints/sae/qwen3.5-9b/layer20.sae.pt"
     check_sae_keys(target_path)

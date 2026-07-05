@@ -2,7 +2,7 @@
 
 # --- 실험 설정 ---
 MODELS=("qwen3.5-9b" "qwen3-8b")
-BASE_DIR="/workspace/medical_mi"
+BASE_DIR="/home/eagle0914/medical_mi"
 SCRIPTS_DIR="$BASE_DIR/scripts"
 LOG_DIR="$BASE_DIR/results/logs"
 

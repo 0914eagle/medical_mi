@@ -9,7 +9,7 @@ from sae_wrapper import SAEWrapper
 from utils import format_pubmedqa, get_ynm_probs
 
 # --- Config ---
-BASE_DIR = "/workspace/medical_mi"
+BASE_DIR = "/home/eagle0914/medical_mi"
 MODELS = {
     "qwen3-8b": f"{BASE_DIR}/checkpoints/model/qwen3-8b",
     "qwen3.5-9b": f"{BASE_DIR}/checkpoints/model/qwen3.5-9b",
@@ -68,7 +68,7 @@ def main():
     print(f"--- Phase 4: Steering for {model_name} L{layer} F{feature_idx} ---")
 
     # Load labels to identify 'wrong' cases
-    labels_path = f"/workspace/medical_mi/results/eval/{model_name}_labels.json"
+    labels_path = f"/home/eagle0914/medical_mi/results/eval/{model_name}_labels.json"
     with open(labels_path, "r") as f:
         labels_data = json.load(f)
     

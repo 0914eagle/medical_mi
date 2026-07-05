@@ -1,5 +1,6 @@
 import os
 import torch
+import argparse
 from huggingface_hub import snapshot_download
 from datasets import load_dataset
 
@@ -8,7 +9,7 @@ DATA_ROOT = os.environ.get("MEDICAL_MI_DATA_ROOT", "/data/heejae")
 os.environ.setdefault("HF_HOME", f"{DATA_ROOT}/.cache/huggingface")
 os.environ.setdefault("TMPDIR", f"{DATA_ROOT}/tmp")
 
-def setup():
+def setup(models):
     base_dir = BASE_DIR
     checkpoint_dir = f"{DATA_ROOT}/checkpoints"
     os.makedirs(f"{checkpoint_dir}/model", exist_ok=True)
@@ -32,8 +33,11 @@ def setup():
         "gemma3-12b-it": "google/gemma-scope-2-12b-it",
     }
 
+    selected_models = models or ["qwen3.5-9b"]
+
     # 1. 모델 다운로드
-    for name, repo in MODELS.items():
+    for name in selected_models:
+        repo = MODELS[name]
         try:
             print(f"\nDownloading model: {name} ({repo})...")
             snapshot_download(
@@ -46,7 +50,8 @@ def setup():
             print(f"Model {name} 다운로드 실패: {e}")
 
     # 2. SAE 다운로드
-    for name, repo in SAE_REPOS.items():
+    for name in selected_models:
+        repo = SAE_REPOS[name]
         try:
             print(f"\nDownloading SAE suite: {name} ({repo})...")
             # Gemma Scope 2는 매우 크므로 resid_post 계열만 우선 시도하거나 전체 다운로드
@@ -76,4 +81,7 @@ def setup():
         print(f"데이터셋 다운로드 실패: {e}")
 
 if __name__ == "__main__":
-    setup()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--models", nargs="+", default=["qwen3.5-9b"], choices=sorted(MODELS))
+    args = parser.parse_args()
+    setup(args.models)
